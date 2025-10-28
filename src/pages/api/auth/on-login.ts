@@ -30,32 +30,41 @@ const onLogin = async (req: NextApiRequest, res: NextApiResponse) => {
       return res.status(200).json({ message: 'User has no interests to assign chatrooms.' });
     }
 
-    // 2. Find chatrooms that match user interests
-    const { data: chatrooms, error: chatroomsError } = await supabase
-      .from('chatrooms')
-      .select('id, interest')
-      .in('interest', userInterests);
+    for (const interest of userInterests) {
+      // 2. Find chatroom that matches user interest
+      let { data: chatroom, error: chatroomError } = await supabase
+        .from('chatrooms')
+        .select('id')
+        .eq('interest', interest)
+        .single();
 
-    if (chatroomsError) {
-      throw new Error('Failed to fetch chatrooms.');
-    }
+      if (chatroomError && chatroomError.code !== 'PGRST116') { // PGRST116: no rows found
+        throw new Error(`Failed to fetch chatroom for interest: ${interest}`);
+      }
 
-    if (!chatrooms || chatrooms.length === 0) {
-      return res.status(200).json({ message: 'No chatrooms found for the user interests.' });
-    }
+      // 3. If chatroom does not exist, create it
+      if (!chatroom) {
+        const { data: newChatroom, error: createError } = await supabase
+          .from('chatrooms')
+          .insert({ name: interest, description: `A chatroom for ${interest}`, interest: interest })
+          .select('id')
+          .single();
+        
+        if (createError || !newChatroom) {
+          throw new Error(`Failed to create chatroom for interest: ${interest}`);
+        }
+        chatroom = newChatroom;
+      }
 
-    // 3. Add user to the participants table for each matched chatroom
-    const participantRecords = chatrooms.map(chatroom => ({
-      chatroom_id: chatroom.id,
-      user_id: user.id,
-    }));
+      // 4. Add user to the participants table for the chatroom
+      const { error: insertError } = await supabase
+        .from('participants')
+        .insert({ chatroom_id: chatroom.id, user_id: user.id }, { onConflict: 'chatroom_id, user_id' });
 
-    const { error: insertError } = await supabase
-      .from('participants')
-      .insert(participantRecords, { onConflict: 'chatroom_id, user_id' });
-
-    if (insertError) {
-      throw new Error('Failed to add user to chatrooms.');
+      if (insertError) {
+        console.error(`Failed to add user to chatroom for interest ${interest}:`, insertError.message);
+        // Decide if you want to throw an error and stop the whole process or just log it and continue
+      }
     }
 
     res.status(200).json({ message: 'User successfully assigned to chatrooms.' });
