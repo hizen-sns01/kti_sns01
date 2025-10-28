@@ -97,7 +97,7 @@ const Home: React.FC = () => {
     });
 
     return () => {
-      authListener?.unsubscribe();
+      authListener?.subscription.unsubscribe();
     };
   }, [router]);
 
