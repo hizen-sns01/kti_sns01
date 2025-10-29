@@ -6,33 +6,48 @@ interface Chatroom {
   id: string;
   name: string;
   description: string;
-  last_message: string;
-  unread_count: number;
 }
 
 const ChatPage: React.FC = () => {
   const [chatrooms, setChatrooms] = useState<Chatroom[]>([]);
+  const [userInterests, setUserInterests] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchChatrooms = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const { data, error } = await supabase.rpc('get_user_chatrooms');
+        
+        // Fetch current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('User not found');
 
-        if (error) {
-          throw error;
-        }
+        // Fetch user's profile to get interests
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('interests')
+          .eq('id', user.id)
+          .single();
 
-        setChatrooms(data || []);
+        if (profileError) throw profileError;
+        setUserInterests(profile?.interests || []);
+
+        // Fetch all chatrooms
+        const { data: allChatrooms, error: chatroomsError } = await supabase
+          .from('chatrooms')
+          .select('*');
+
+        if (chatroomsError) throw chatroomsError;
+        setChatrooms(allChatrooms || []);
+
       } catch (error: any) {
-        console.error('Error fetching chatrooms:', error.message);
+        console.error('Error fetching data for chat page:', error.message);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchChatrooms();
+    fetchData();
   }, []);
 
   if (loading) {
@@ -41,22 +56,29 @@ const ChatPage: React.FC = () => {
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">채팅방 목록</h1>
+      <div className="mb-8 p-4 border rounded-lg bg-gray-50">
+        <h2 className="text-xl font-semibold">나의 관심사</h2>
+        <div className="flex flex-wrap gap-2 mt-2">
+          {userInterests.length > 0 ? (
+            userInterests.map(interest => (
+              <span key={interest} className="bg-blue-100 text-blue-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded">
+                {interest}
+              </span>
+            ))
+          ) : (
+            <p>등록된 관심사가 없습니다.</p>
+          )}
+        </div>
+      </div>
+
+      <h1 className="text-2xl font-bold mb-4">전체 채팅방 목록</h1>
       <div className="space-y-4">
         {chatrooms.map((chatroom) => (
           <Link key={chatroom.id} href={`/chat/${chatroom.id}`}>
-            <a className="block p-4 border rounded-lg hover:bg-gray-100">
-              <div className="flex justify-between">
-                <h2 className="text-xl font-semibold">{chatroom.name}</h2>
-                {chatroom.unread_count > 0 && (
-                  <span className="bg-red-500 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center">
-                    {chatroom.unread_count}
-                  </span>
-                )}
-              </div>
+            <div className="block p-4 border rounded-lg hover:bg-gray-100 cursor-pointer">
+              <h2 className="text-xl font-semibold">{chatroom.name}</h2>
               <p className="text-gray-600">{chatroom.description}</p>
-              <p className="text-sm text-gray-500 mt-2">{chatroom.last_message || '아직 메시지가 없습니다.'}</p>
-            </a>
+            </div>
           </Link>
         ))}
       </div>

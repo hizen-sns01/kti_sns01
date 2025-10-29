@@ -34,49 +34,42 @@ ON CONFLICT (interest) DO NOTHING;
 
 -- 3. Row Level Security (RLS)
 ALTER TABLE public.chatrooms ENABLE ROW LEVEL SECURITY;
+-- Allow all authenticated users to view all chatrooms
 DROP POLICY IF EXISTS "Users can view chatrooms they are in" ON public.chatrooms;
-CREATE POLICY "Users can view chatrooms they are in" ON public.chatrooms FOR SELECT
-USING (
-  exists (
-    select 1
-    from public.participants
-    where participants.chatroom_id = chatrooms.id
-    and participants.user_id = auth.uid()
-  )
-);
+DROP POLICY IF EXISTS "Authenticated users can view all chatrooms" ON public.chatrooms;
+CREATE POLICY "Authenticated users can view all chatrooms" ON public.chatrooms FOR SELECT
+TO authenticated
+USING (true);
 
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view messages in chatrooms they are in" ON public.messages;
 CREATE POLICY "Users can view messages in chatrooms they are in" ON public.messages FOR SELECT
 USING (
-  exists (
-    select 1
-    from public.participants
-    where participants.chatroom_id = messages.chatroom_id
-    and participants.user_id = auth.uid()
-  )
+  public.is_participant(chatroom_id)
 );
 
 DROP POLICY IF EXISTS "Users can insert messages in chatrooms they are in" ON public.messages;
 CREATE POLICY "Users can insert messages in chatrooms they are in" ON public.messages FOR INSERT
 WITH CHECK (
-  exists (
-    select 1
-    from public.participants
-    where participants.chatroom_id = messages.chatroom_id
-    and participants.user_id = auth.uid()
-  )
+  public.is_participant(chatroom_id)
 );
 
 ALTER TABLE public.participants ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view participants in chatrooms they are in" ON public.participants;
-CREATE POLICY "Users can view participants in chatrooms they are in" ON public.participants FOR SELECT
+CREATE POLICY "Users can view participants in chatrooms they are in" ON public.participants
+FOR SELECT
 USING (
-  chatroom_id IN (
-    SELECT chatroom_id
-    FROM public.participants
-    WHERE user_id = auth.uid()
-  )
+  public.is_participant(chatroom_id)
+);
+
+DROP POLICY IF EXISTS "Users can update their own participation record" ON public.participants;
+CREATE POLICY "Users can update their own participation record" ON public.participants
+FOR UPDATE
+USING (
+  user_id = auth.uid()
+)
+WITH CHECK (
+  user_id = auth.uid()
 );
 
 -- Allow authenticated users to view all profiles

@@ -1,15 +1,26 @@
-import React, { useState } from 'react';
-
-interface InterestSelectionScreenProps {
-  onInterestsSelected: (interests: string[]) => void;
-}
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
+import { supabase } from '../supabaseClient';
 
 const predefinedInterests = ['오픈 AI', '기술', '테니스', '요리', '여행', '음악'];
 
-const InterestSelectionScreen: React.FC<InterestSelectionScreenProps> = ({ onInterestsSelected }) => {
+const InterestSelectionPage: React.FC = () => {
+  const router = useRouter();
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [customInterest, setCustomInterest] = useState('');
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Check if user is logged in, otherwise redirect to login
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace('/login');
+      }
+    };
+    checkUser();
+  }, [router]);
 
   const toggleInterest = (interest: string) => {
     setSelectedInterests(prev =>
@@ -26,12 +37,32 @@ const InterestSelectionScreen: React.FC<InterestSelectionScreenProps> = ({ onInt
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (selectedInterests.length === 0) {
       setMessage('최소 하나 이상의 관심사를 선택해주세요.');
       return;
     }
-    onInterestsSelected(selectedInterests);
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not found');
+
+      // Save interests to the profile
+      const { error } = await supabase.from('profiles').upsert({ 
+        id: user.id,
+        interests: selectedInterests,
+        email: user.email
+      }, { onConflict: 'id' });
+
+      if (error) throw error;
+
+      router.push('/nickname-setting');
+    } catch (error: any) {
+      console.error('Error saving interests:', error);
+      setMessage('관심사 저장에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -60,11 +91,7 @@ const InterestSelectionScreen: React.FC<InterestSelectionScreenProps> = ({ onInt
               setCustomInterest(e.target.value);
               setMessage('');
             }}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                addCustomInterest();
-              }
-            }}
+            onKeyPress={(e) => e.key === 'Enter' && addCustomInterest()}
             placeholder="새로운 관심사 입력 (선택 사항)"
             className="flex-grow px-4 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -81,17 +108,9 @@ const InterestSelectionScreen: React.FC<InterestSelectionScreenProps> = ({ onInt
             <p className="text-gray-700 mb-2">선택된 관심사:</p>
             <div className="flex flex-wrap gap-2">
               {selectedInterests.map(interest => (
-                <span
-                  key={interest}
-                  className="px-4 py-2 rounded-full text-sm font-medium bg-blue-100 text-blue-800 flex items-center"
-                >
+                <span key={interest} className="px-4 py-2 rounded-full text-sm font-medium bg-blue-100 text-blue-800 flex items-center">
                   {interest}
-                  <button
-                    onClick={() => toggleInterest(interest)}
-                    className="ml-2 text-blue-600 hover:text-blue-800 focus:outline-none"
-                  >
-                    &times;
-                  </button>
+                  <button onClick={() => toggleInterest(interest)} className="ml-2 text-blue-600 hover:text-blue-800 focus:outline-none">&times;</button>
                 </span>
               ))}
             </div>
@@ -102,14 +121,14 @@ const InterestSelectionScreen: React.FC<InterestSelectionScreenProps> = ({ onInt
 
         <button
           onClick={handleNext}
-          disabled={selectedInterests.length === 0}
+          disabled={loading || selectedInterests.length === 0}
           className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 disabled:opacity-50"
         >
-          다음
+          {loading ? '저장 중...' : '다음'}
         </button>
       </div>
     </div>
   );
 };
 
-export default InterestSelectionScreen;
+export default InterestSelectionPage;

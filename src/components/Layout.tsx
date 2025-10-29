@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
@@ -23,18 +24,20 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   }, []);
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('Error logging out:', error.message);
-    } else {
-      router.push('/'); // Redirect to home page after logout
-    }
+    await supabase.auth.signOut();
+    router.push('/login'); // Redirect to login page after logout
   };
+
+  const navItems = [
+    { href: '/chat', label: '홈' },
+    { href: '/chat', label: '채팅' },
+    { href: '/profile', label: '프로필' },
+  ];
 
   return (
     <div>
       <header className="bg-gray-800 text-white p-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold">SNS App</h1>
+        <h1 className="text-xl font-bold cursor-pointer" onClick={() => router.push('/chat')}>SNS App</h1>
         {isLoggedIn && (
           <button
             onClick={handleLogout}
@@ -44,7 +47,20 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </button>
         )}
       </header>
-      <main>{children}</main>
+      
+      <nav className="bg-white shadow-md">
+        <div className="container mx-auto flex justify-around">
+          {navItems.map((item) => (
+            <Link key={item.label} href={item.href}>
+              <div className={`py-4 px-2 block text-center text-lg font-medium cursor-pointer ${router.pathname.startsWith(item.href) ? 'border-b-4 border-blue-500 text-blue-500' : 'text-gray-500 hover:text-blue-500'}`}>
+                {item.label}
+              </div>
+            </Link>
+          ))}
+        </div>
+      </nav>
+
+      <main className="p-4">{children}</main>
     </div>
   );
 };

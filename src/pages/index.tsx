@@ -1,153 +1,61 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../supabaseClient';
-import StartScreen from '../StartScreen';
-import EmailVerificationScreen from '../EmailVerificationScreen'; // Now acts as Google Sign-in
-import InterestSelectionScreen from '../InterestSelectionScreen';
-import NicknameSettingScreen from '../NicknameSettingScreen';
 
-enum OnboardingStep {
-  Loading,
-  Start,
-  EmailVerification, // Now Google Sign-in
-  InterestSelection,
-  NicknameSetting,
-  Complete,
-}
-
-const Home: React.FC = () => {
-  const [step, setStep] = useState<OnboardingStep>(OnboardingStep.Loading);
-  const [userEmail, setUserEmail] = useState<string>('');
-  const [userInterests, setUserInterests] = useState<string[]>([]);
+const IndexPage = () => {
   const router = useRouter();
 
   useEffect(() => {
-    const checkUserSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
+    const checkUserAndRedirect = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
 
-      if (error) {
-        console.error('Error getting session:', error);
-        setStep(OnboardingStep.Start);
+      // If no user session, redirect to login page
+      if (!session) {
+        router.replace('/login');
         return;
       }
 
-      if (session) {
-        setUserEmail(session.user.email || '');
-        // Check if user has completed onboarding (profile exists)
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('nickname, interests')
-          .eq('id', session.user.id)
-          .single();
+      // If user session exists, check profile status
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('nickname, interests')
+        .eq('id', session.user.id)
+        .single();
 
-        if (profileError && profileError.code !== 'PGRST116') { // PGRST116 means no rows found
-          console.error('Error fetching profile:', profileError);
-          setStep(OnboardingStep.Start); // Fallback to start if profile fetch fails unexpectedly
-          return;
-        }
+      // Handle potential error (excluding 'no rows found' which is a valid case)
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching profile:', error);
+        // Redirect to login on error, as we can't determine user state
+        router.replace('/login');
+        return;
+      }
 
-        if (profile && profile.nickname && profile.interests && profile.interests.length > 0) {
-          // User fully onboarded
-          router.push('/chat'); // Redirect to main app
-        } else if (profile && profile.interests && profile.interests.length > 0) {
-          // Interests selected, but nickname might be missing or profile incomplete
-          setStep(OnboardingStep.NicknameSetting);
-        } else {
-          // User logged in but needs to select interests
-          setStep(OnboardingStep.InterestSelection);
-        }
+      // Redirect based on profile status
+      if (!profile || !profile.interests || profile.interests.length === 0) {
+        router.replace('/interest-selection');
+      } else if (!profile.nickname) {
+        router.replace('/nickname-setting');
       } else {
-        // No session, start onboarding
-        setStep(OnboardingStep.Start);
+        // User is fully onboarded, trigger chatroom assignment and redirect to chat
+        // We still call the on-login API here to ensure chatrooms are assigned on every login
+        await fetch('/api/auth/on-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user: session.user }),
+        });
+        router.replace('/chat');
       }
     };
 
-    checkUserSession();
-
-    // Listen for auth state changes (e.g., after OAuth redirect)
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        setUserEmail(session.user.email || '');
-        // If coming from OAuth, check profile completion
-        const checkProfileCompletion = async () => {
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('nickname, interests')
-            .eq('id', session.user.id)
-            .single();
-
-          if (profileError && profileError.code !== 'PGRST116') {
-            console.error('Error fetching profile on auth state change:', profileError);
-            setStep(OnboardingStep.InterestSelection); // Default to interest selection
-            return;
-          }
-
-          if (profile && profile.nickname && profile.interests && profile.interests.length > 0) {
-            router.push('/chat');
-          } else if (profile && profile.interests && profile.interests.length > 0) {
-            setStep(OnboardingStep.NicknameSetting);
-          } else {
-            setStep(OnboardingStep.InterestSelection);
-          }
-        };
-        checkProfileCompletion();
-      } else {
-        setStep(OnboardingStep.Start);
-      }
-    });
-
-    return () => {
-      authListener?.subscription.unsubscribe();
-    };
+    checkUserAndRedirect();
   }, [router]);
 
-  const handleStart = () => {
-    setStep(OnboardingStep.EmailVerification);
-  };
-
-  const handleInterestsSelected = (interests: string[]) => {
-    setUserInterests(interests);
-    setStep(OnboardingStep.NicknameSetting);
-  };
-
-  const handleSignUpComplete = () => {
-    setStep(OnboardingStep.Complete);
-    router.push('/chat'); // Redirect to main chat screen
-  };
-
-  if (step === OnboardingStep.Loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <p>로딩 중...</p>
-      </div>
-    );
-  }
-
-  switch (step) {
-    case OnboardingStep.Start:
-      return <StartScreen onStart={handleStart} />;
-    case OnboardingStep.EmailVerification:
-      return <EmailVerificationScreen onEmailVerified={() => { /* Handled by OAuth callback */ }} />;
-    case OnboardingStep.InterestSelection:
-      return <InterestSelectionScreen onInterestsSelected={handleInterestsSelected} />;
-    case OnboardingStep.NicknameSetting:
-      return (
-        <NicknameSettingScreen
-          email={userEmail}
-          interests={userInterests}
-          onSignUpComplete={handleSignUpComplete}
-        />
-      );
-    case OnboardingStep.Complete:
-      return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-          <h1 className="text-4xl font-bold text-green-600 mb-4">회원가입 완료!</h1>
-          <p className="text-lg text-gray-700">서비스를 시작해주세요.</p>
-        </div>
-      );
-    default:
-      return null;
-  }
+  // This page will show a loading indicator while redirecting
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <p>로딩 중...</p>
+    </div>
+  );
 };
 
-export default Home;
+export default IndexPage;

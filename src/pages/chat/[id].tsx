@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../../../supabaseClient';
+import { supabase } from '../../supabaseClient';
 
 interface Message {
   id: number;
