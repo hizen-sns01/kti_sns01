@@ -1,4 +1,38 @@
--- 1. Tables
+-- =================================================================
+-- FINAL SCHEMA SCRIPT (v2)
+-- This single script contains everything needed for the database.
+-- Run this entire script in a new, blank SQL query editor.
+-- =================================================================
+
+-- 1. Profiles Table and Auth Trigger
+
+-- Create the profiles table
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    email text,
+    nickname text UNIQUE,
+    interests text[],
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Auth Trigger: Create a profile entry when a new user signs up
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email)
+  VALUES (new.id, new.email);
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+
+-- 2. Chat-related Tables
+
 CREATE TABLE IF NOT EXISTS public.chatrooms (
     id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
     name text NOT NULL,
@@ -24,7 +58,7 @@ CREATE TABLE IF NOT EXISTS public.participants (
     UNIQUE(chatroom_id, user_id)
 );
 
--- 2. Seed data
+-- 3. Seed data for chatrooms
 INSERT INTO public.chatrooms (name, description, interest) VALUES
 ('React', 'React, Next.js, and all things frontend.', 'Frontend'),
 ('Node.js', 'Discussing Node.js, Express, and backend development.', 'Backend'),
@@ -32,53 +66,58 @@ INSERT INTO public.chatrooms (name, description, interest) VALUES
 ('DevOps', 'CI/CD, Docker, Kubernetes, and more.', 'DevOps')
 ON CONFLICT (interest) DO NOTHING;
 
--- 3. Row Level Security (RLS)
-ALTER TABLE public.chatrooms ENABLE ROW LEVEL SECURITY;
--- Allow all authenticated users to view all chatrooms
-DROP POLICY IF EXISTS "Users can view chatrooms they are in" ON public.chatrooms;
-DROP POLICY IF EXISTS "Authenticated users can view all chatrooms" ON public.chatrooms;
-CREATE POLICY "Authenticated users can view all chatrooms" ON public.chatrooms FOR SELECT
-TO authenticated
-USING (true);
 
-ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+-- 4. Row Level Security (RLS) Policies
+
+-- First, drop all dependent policies
 DROP POLICY IF EXISTS "Users can view messages in chatrooms they are in" ON public.messages;
-CREATE POLICY "Users can view messages in chatrooms they are in" ON public.messages FOR SELECT
-USING (
-  public.is_participant(chatroom_id)
-);
-
 DROP POLICY IF EXISTS "Users can insert messages in chatrooms they are in" ON public.messages;
-CREATE POLICY "Users can insert messages in chatrooms they are in" ON public.messages FOR INSERT
-WITH CHECK (
-  public.is_participant(chatroom_id)
-);
-
-ALTER TABLE public.participants ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view participants in chatrooms they are in" ON public.participants;
-CREATE POLICY "Users can view participants in chatrooms they are in" ON public.participants
-FOR SELECT
-USING (
-  public.is_participant(chatroom_id)
-);
+
+-- Then, drop the function
+DROP FUNCTION IF EXISTS public.is_participant(uuid) CASCADE;
+
+-- Now, create the function
+CREATE OR REPLACE FUNCTION public.is_participant(p_chatroom_id uuid)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.participants
+    WHERE chatroom_id = p_chatroom_id AND user_id = auth.uid()
+  );
+END;
+$$;
+
+-- Finally, create all policies
+
+-- Profiles Policies
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can insert their own profile." ON public.profiles;
+CREATE POLICY "Users can insert their own profile." ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Users can update their own profile." ON public.profiles;
+CREATE POLICY "Users can update their own profile." ON public.profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Authenticated users can view all profiles" ON public.profiles;
+CREATE POLICY "Authenticated users can view all profiles" ON public.profiles FOR SELECT TO authenticated USING (true);
+
+-- Chatrooms Policies
+ALTER TABLE public.chatrooms ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Authenticated users can view all chatrooms" ON public.chatrooms;
+CREATE POLICY "Authenticated users can view all chatrooms" ON public.chatrooms FOR SELECT TO authenticated USING (true);
+
+-- Messages Policies
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view messages in chatrooms they are in" ON public.messages FOR SELECT USING ( public.is_participant(chatroom_id) );
+CREATE POLICY "Users can insert messages in chatrooms they are in" ON public.messages FOR INSERT WITH CHECK ( public.is_participant(chatroom_id) );
+
+-- Participants Policies
+ALTER TABLE public.participants ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view participants in chatrooms they are in" ON public.participants FOR SELECT USING ( public.is_participant(chatroom_id) );
 
 DROP POLICY IF EXISTS "Users can update their own participation record" ON public.participants;
-CREATE POLICY "Users can update their own participation record" ON public.participants
-FOR UPDATE
-USING (
-  user_id = auth.uid()
-)
-WITH CHECK (
-  user_id = auth.uid()
-);
+CREATE POLICY "Users can update their own participation record" ON public.participants FOR UPDATE USING ( user_id = auth.uid() ) WITH CHECK ( user_id = auth.uid() );
 
--- Allow authenticated users to view all profiles
--- This is necessary for the chat feature to display user information
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Authenticated users can view profiles" ON public.profiles;
-CREATE POLICY "Authenticated users can view profiles" ON public.profiles FOR SELECT
-TO authenticated
-USING (true);
 
--- 4. Realtime (Run this part separately if it causes issues)
+-- 5. Realtime (Optional, run separately if needed)
 -- ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;

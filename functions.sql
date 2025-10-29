@@ -27,3 +27,22 @@ BEGIN
   WHERE chatroom_id = chatroom_id_param AND user_id = auth.uid();
 END;
 $$ LANGUAGE plpgsql;
+
+-- Function to get all chatrooms with participant count and user membership
+DROP FUNCTION IF EXISTS public.get_all_chatrooms_with_details();
+CREATE OR REPLACE FUNCTION public.get_all_chatrooms_with_details()
+RETURNS TABLE (id uuid, name text, description text, interest text, created_at timestamptz, participant_count bigint, is_member boolean) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    c.id,
+    c.name,
+    c.description,
+    c.interest,
+    c.created_at,
+    (SELECT count(*) FROM public.participants p WHERE p.chatroom_id = c.id) as participant_count,
+    EXISTS(SELECT 1 FROM public.participants p WHERE p.chatroom_id = c.id AND p.user_id = auth.uid()) as is_member
+  FROM
+    public.chatrooms c;
+END;
+$$ LANGUAGE plpgsql;

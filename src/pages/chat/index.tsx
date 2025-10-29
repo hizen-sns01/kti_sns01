@@ -6,6 +6,8 @@ interface Chatroom {
   id: string;
   name: string;
   description: string;
+  participant_count: number;
+  is_member: boolean;
 }
 
 const ChatPage: React.FC = () => {
@@ -18,11 +20,9 @@ const ChatPage: React.FC = () => {
       try {
         setLoading(true);
         
-        // Fetch current user
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('User not found');
 
-        // Fetch user's profile to get interests
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('interests')
@@ -32,13 +32,18 @@ const ChatPage: React.FC = () => {
         if (profileError) throw profileError;
         setUserInterests(profile?.interests || []);
 
-        // Fetch all chatrooms
         const { data: allChatrooms, error: chatroomsError } = await supabase
-          .from('chatrooms')
-          .select('*');
+          .rpc('get_all_chatrooms_with_details');
 
         if (chatroomsError) throw chatroomsError;
-        setChatrooms(allChatrooms || []);
+
+        // Instead of sorting, separate into two lists
+        const allChatroomsData = allChatrooms || [];
+        const joinedChatrooms = allChatroomsData.filter(c => c.is_member);
+        const otherChatrooms = allChatroomsData.filter(c => !c.is_member);
+
+        // Set state with the original full list, we will separate in render
+        setChatrooms(allChatroomsData);
 
       } catch (error: any) {
         console.error('Error fetching data for chat page:', error.message);
@@ -53,6 +58,10 @@ const ChatPage: React.FC = () => {
   if (loading) {
     return <div>로딩 중...</div>;
   }
+
+  // Separate chatrooms into joined and other for rendering
+  const joinedChatrooms = chatrooms.filter(c => c.is_member);
+  const otherChatrooms = chatrooms.filter(c => !c.is_member);
 
   return (
     <div className="container mx-auto p-4">
@@ -71,16 +80,59 @@ const ChatPage: React.FC = () => {
         </div>
       </div>
 
-      <h1 className="text-2xl font-bold mb-4">전체 채팅방 목록</h1>
-      <div className="space-y-4">
-        {chatrooms.map((chatroom) => (
-          <Link key={chatroom.id} href={`/chat/${chatroom.id}`}>
-            <div className="block p-4 border rounded-lg hover:bg-gray-100 cursor-pointer">
-              <h2 className="text-xl font-semibold">{chatroom.name}</h2>
-              <p className="text-gray-600">{chatroom.description}</p>
-            </div>
-          </Link>
-        ))}
+      {/* Joined Chatrooms Section */}
+      <div className="mb-12">
+        <h1 className="text-2xl font-bold mb-4">참여 중인 채팅방</h1>
+        <div className="space-y-4">
+          {joinedChatrooms.length > 0 ? (
+            joinedChatrooms.map((chatroom) => (
+              <Link key={chatroom.id} href={`/chat/${chatroom.id}`}>
+                <div className="block p-4 border rounded-lg hover:bg-gray-200 cursor-pointer bg-blue-50">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center">
+                      <h2 className="text-xl font-semibold">{chatroom.name}</h2>
+                      <span className="ml-3 inline-block bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                        참여 중
+                      </span>
+                    </div>
+                    <div className="flex items-center text-gray-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0115 11a5 5 0 011 9.9M9 12a5 5 0 00-5 5v1h10v-1a5 5 0 00-5-5z" />
+                      </svg>
+                      <span>{chatroom.participant_count}</span>
+                    </div>
+                  </div>
+                  <p className="text-gray-600 mt-1">{chatroom.description}</p>
+                </div>
+              </Link>
+            ))
+          ) : (
+            <p className="text-gray-500">참여 중인 채팅방이 없습니다.</p>
+          )}
+        </div>
+      </div>
+
+      {/* Other Chatrooms Section */}
+      <div>
+        <h1 className="text-2xl font-bold mb-4">다른 채팅방</h1>
+        <div className="space-y-4">
+          {otherChatrooms.map((chatroom) => (
+            <Link key={chatroom.id} href={`/chat/${chatroom.id}`}>
+              <div className="block p-4 border rounded-lg hover:bg-gray-100 cursor-pointer">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xl font-semibold">{chatroom.name}</h2>
+                  <div className="flex items-center text-gray-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0115 11a5 5 0 011 9.9M9 12a5 5 0 00-5 5v1h10v-1a5 5 0 00-5-5z" />
+                    </svg>
+                    <span>{chatroom.participant_count}</span>
+                  </div>
+                </div>
+                <p className="text-gray-600 mt-1">{chatroom.description}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );
