@@ -61,7 +61,7 @@ const onLogin = async (req: NextApiRequest, res: NextApiResponse) => {
       if (chatroom) {
         await supabase
           .from('participants')
-          .insert({ chatroom_id: chatroom.id, user_id: user.id }, { onConflict: 'chatroom_id, user_id' });
+          .upsert([{ chatroom_id: chatroom.id, user_id: user.id }], { onConflict: 'chatroom_id, user_id' });
       }
     }
 
