@@ -7,6 +7,9 @@ interface Message {
   user_id: string;
   content: string;
   created_at: string;
+  profiles: {
+    nickname: string;
+  } | null;
 }
 
 const ChatroomPage: React.FC = () => {
@@ -17,27 +20,33 @@ const ChatroomPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const fetchMessages = async () => {
     if (!id) return;
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          profiles ( nickname )
+        `)
+        .eq('chatroom_id', id)
+        .order('created_at', { ascending: true });
 
-    const fetchMessages = async () => {
-      try {
-        setLoading(true);
-        const { data, error } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('chatroom_id', id)
-          .order('created_at', { ascending: true });
+      if (error) throw error;
+      setMessages(data || []);
 
-        if (error) throw error;
-        setMessages(data || []);
-      } catch (error: any) {
-        console.error('Error fetching messages:', error.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+      // Mark messages as read
+      await supabase.rpc('update_last_read_at', { chatroom_id_param: id });
 
+    } catch (error: any) {
+      console.error('Error fetching messages:', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchMessages();
 
     const messageSubscription = supabase
@@ -46,7 +55,10 @@ const ChatroomPage: React.FC = () => {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` },
         (payload) => {
-          setMessages((prevMessages) => [...prevMessages, payload.new as Message]);
+          // This is a simplified way to handle new messages.
+          // For a better user experience, you might want to fetch the profile of the new sender.
+          const newMessage = payload.new as Message;
+          setMessages((prevMessages) => [...prevMessages, newMessage]);
         }
       )
       .subscribe();
@@ -89,7 +101,7 @@ const ChatroomPage: React.FC = () => {
       <div className="flex-grow overflow-y-auto p-4 border rounded-lg mb-4">
         {messages.map((message) => (
           <div key={message.id} className="mb-2">
-            <span className="font-bold">{message.user_id.slice(0, 8)}: </span>
+            <span className="font-bold">{message.profiles?.nickname || message.user_id.slice(0, 8)}: </span>
             <span>{message.content}</span>
           </div>
         ))}

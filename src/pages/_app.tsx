@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 
 function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
+  // Routes that should not have the layout
   const noLayoutRoutes = ['/'];
 
   if (noLayoutRoutes.includes(router.pathname)) {

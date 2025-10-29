@@ -1,32 +1,29 @@
-create or replace function get_user_chatrooms()
-returns table (id uuid, name text, description text, last_message text, unread_count integer) as $$
-begin
-  return query
-  select
+DROP FUNCTION IF EXISTS public.get_user_chatrooms();
+CREATE OR REPLACE FUNCTION public.get_user_chatrooms()
+RETURNS TABLE (id uuid, name text, description text, last_message text, unread_count bigint) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
     c.id,
     c.name,
     c.description,
-    (select content from messages where chatroom_id = c.id order by created_at desc limit 1) as last_message,
-    (select count(*) from messages where chatroom_id = c.id and created_at > (select last_read_at from participants where chatroom_id = c.id and user_id = auth.uid()))::integer as unread_count
-  from
-    chatrooms c
-  join
-    participants p on c.id = p.chatroom_id
-  where
+    (SELECT content FROM public.messages WHERE chatroom_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message,
+    (SELECT count(*) FROM public.messages WHERE chatroom_id = c.id AND created_at > (SELECT last_read_at FROM public.participants WHERE chatroom_id = c.id AND user_id = auth.uid()))
+  FROM
+    public.chatrooms c
+  JOIN
+    public.participants p ON c.id = p.chatroom_id
+  WHERE
     p.user_id = auth.uid();
-end; 
-$$ language plpgsql;
+END;
+$$ LANGUAGE plpgsql;
 
--- To track last read messages, we need to add a last_read_at column to the participants table.
--- We also need a function to update this timestamp.
-
-alter table participants add column last_read_at timestamp with time zone;
-
-create or replace function update_last_read_at(chatroom_id_param uuid)
-returns void as $$
-begin
-  update participants
-  set last_read_at = now()
-  where chatroom_id = chatroom_id_param and user_id = auth.uid();
-end;
-$$ language plpgsql;
+DROP FUNCTION IF EXISTS public.update_last_read_at(uuid);
+CREATE OR REPLACE FUNCTION public.update_last_read_at(chatroom_id_param uuid)
+RETURNS void AS $$
+BEGIN
+  UPDATE public.participants
+  SET last_read_at = now()
+  WHERE chatroom_id = chatroom_id_param AND user_id = auth.uid();
+END;
+$$ LANGUAGE plpgsql;

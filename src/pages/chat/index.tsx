@@ -55,7 +55,7 @@ const ChatPage: React.FC = () => {
                 )}
               </div>
               <p className="text-gray-600">{chatroom.description}</p>
-              <p className="text-sm text-gray-500 mt-2">{chatroom.last_message}</p>
+              <p className="text-sm text-gray-500 mt-2">{chatroom.last_message || '아직 메시지가 없습니다.'}</p>
             </a>
           </Link>
         ))}

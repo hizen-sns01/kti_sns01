@@ -68,16 +68,6 @@ const Home: React.FC = () => {
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         setUserEmail(session.user.email || '');
-
-        // Call the on-login API route
-        fetch('/api/auth/on-login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ user: session.user }),
-        });
-
         // If coming from OAuth, check profile completion
         const checkProfileCompletion = async () => {
           const { data: profile, error: profileError } = await supabase

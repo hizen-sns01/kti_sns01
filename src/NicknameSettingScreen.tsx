@@ -58,6 +58,16 @@ const NicknameSettingScreen: React.FC<NicknameSettingScreenProps> = ({ email, in
         }
       } else {
         setMessage('회원가입 및 프로필 설정 완료!');
+
+        // Trigger chatroom assignment after profile is set up
+        await fetch('/api/auth/on-login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ user }),
+        });
+
         onSignUpComplete();
       }
     } catch (error: any) {
