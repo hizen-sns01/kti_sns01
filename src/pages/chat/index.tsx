@@ -38,8 +38,8 @@ const ChatPage: React.FC = () => {
         if (chatroomsError) throw chatroomsError;
 
         // Instead of sorting, separate into two lists
-        const allChatroomsData = allChatrooms || [];
-        const joinedChatrooms = allChatroomsData.filter(c => c.is_member);
+        const allChatroomsData: Chatroom[] = allChatrooms || [];
+        const joinedChatrooms = allChatroomsData.filter((c: Chatroom) => c.is_member);
         const otherChatrooms = allChatroomsData.filter(c => !c.is_member);
 
         // Set state with the original full list, we will separate in render
