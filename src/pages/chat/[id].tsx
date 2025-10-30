@@ -8,6 +8,7 @@ interface Message {
   user_id: string;
   content: string;
   created_at: string;
+  chatroom_id: string; // Added for API call
   profiles: {
     nickname: string;
   } | null;
@@ -56,6 +57,8 @@ const ChatroomPage: React.FC = () => {
   };
 
   useEffect(() => {
+    if (!id) return; // Ensure id is available
+
     fetchMessages();
 
     const messageSubscription = supabase
@@ -65,7 +68,30 @@ const ChatroomPage: React.FC = () => {
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` },
         async (payload) => {
           const newMessage = payload.new as Message;
-          // Fetch profile for the new message
+          const aiUserId = '4bb3e1a3-099b-4b6c-bf3a-8b60c51baa79';
+
+          // Check for AI curator keyword, but ignore messages from the AI itself
+          if (newMessage.user_id !== aiUserId && newMessage.content.includes('@큐레이터')) {
+            const question = newMessage.content.split('@큐레이터')[1]?.trim();
+
+            if (question) {
+              // Call the API endpoint without waiting for it to finish
+              fetch('/api/curator/qa-handler', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  question: question,
+                  chatroomId: newMessage.chatroom_id,
+                }),
+              }).catch(error => {
+                console.error('Failed to call QA handler:', error);
+              });
+            }
+          }
+
+          // Fetch profile for the new message to display it correctly
           const { data: profileData, error } = await supabase
             .from('profiles')
             .select('nickname')
@@ -94,7 +120,7 @@ const ChatroomPage: React.FC = () => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newMessage.trim() === '' || !currentUser) return;
+    if (newMessage.trim() === '' || !currentUser || !id) return;
 
     const { error } = await supabase.from('messages').insert([
       { chatroom_id: id, user_id: currentUser.id, content: newMessage.trim() },
@@ -112,21 +138,21 @@ const ChatroomPage: React.FC = () => {
   }
 
   return (
-    // Use h-full and flex-col to create a chat layout.
-    // The height is calculated to fill the space below the main layout's header/nav.
     <div className="flex flex-col h-[calc(100vh-9rem)]">
       {/* Message display area */}
       <div className="flex-grow overflow-y-auto p-2 md:p-4">
         <div className="space-y-4">
           {messages.map((message) => {
             const isCurrentUser = message.user_id === currentUser?.id;
+            const isAiCurator = message.user_id === '4bb3e1a3-099b-4b6c-bf3a-8b60c51baa79';
+
             return (
               <div
                 key={message.id}
-                className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${isCurrentUser || isAiCurator ? 'justify-end' : 'justify-start'}`}
               >
                 <div className="flex items-end max-w-xs md:max-w-md">
-                  {!isCurrentUser && (
+                  {!isCurrentUser && !isAiCurator && (
                      <div className="mr-2 text-xs text-gray-500 text-center">
                         <div className="w-8 h-8 rounded-full bg-gray-300 mb-1"></div>
                         {message.profiles?.nickname || '...'}
@@ -136,9 +162,12 @@ const ChatroomPage: React.FC = () => {
                     className={`px-4 py-2 rounded-lg ${
                       isCurrentUser
                         ? 'bg-blue-500 text-white rounded-br-none'
+                        : isAiCurator
+                        ? 'bg-green-500 text-white rounded-bl-none' // Different color for AI
                         : 'bg-gray-200 text-gray-800 rounded-bl-none'
                     }`}
                   >
+                    {isAiCurator && <strong className='block text-xs mb-1'>AI 큐레이터</strong>}
                     {message.content}
                   </div>
                 </div>
@@ -157,7 +186,7 @@ const ChatroomPage: React.FC = () => {
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             className="flex-grow border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="메시지를 입력하세요..."
+            placeholder="메시지를 입력하세요... (@큐레이터 호출 가능)"
           />
           <button
             type="submit"
