@@ -1,3 +1,4 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from '@supabase/supabase-js'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
@@ -19,7 +20,7 @@ async function handler(req: Request): Promise<Response> {
     if (chatroomsError) throw chatroomsError
 
     // Get unique chatroom IDs
-    const uniqueChatroomIds = [...new Set(chatrooms.map(c => c.chatroom_id))]
+    const uniqueChatroomIds = Array.from(new Set(chatrooms.map(c => c.chatroom_id)))
 
     if (uniqueChatroomIds.length === 0) {
       return new Response(JSON.stringify({ message: 'No active chatrooms to summarize.' }), {
