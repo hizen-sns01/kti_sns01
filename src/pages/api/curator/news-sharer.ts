@@ -44,7 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (interestsError) throw new Error(interestsError.message);
 
-    const uniqueInterests = [...new Set(interestsData?.map(i => i.interest).filter(Boolean))];
+    const uniqueInterests = Array.from(new Set(interestsData?.map(i => i.interest).filter(Boolean)));
 
     console.log(`Found ${uniqueInterests.length} unique interests to search for.`);
 
@@ -69,15 +69,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (roomsError) throw roomsError;
 
-      // 2d. Insert the message into all relevant chatrooms
-      const messagesToInsert = roomsToPost.map(room => ({
+      // 2d. Insert the message into all relevant chatrooms (with null check)
+      const messagesToInsert = roomsToPost?.map(room => ({
         chatroom_id: room.id,
         user_id: aiUserId,
         content: messageContent,
         is_ai_curator: true,
       }));
 
-      if (messagesToInsert.length > 0) {
+      if (messagesToInsert && messagesToInsert.length > 0) {
         await supabase.from('messages').insert(messagesToInsert);
         console.log(`Posted article about ${interest} to ${roomsToPost.length} rooms.`);
       }
