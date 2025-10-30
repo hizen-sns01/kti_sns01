@@ -54,21 +54,21 @@ const NicknameSettingPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">닉네임 설정</h1>
-      <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-md">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 px-4">
+      <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4 md:mb-6">닉네임 설정</h1>
+      <div className="w-full max-w-md bg-white p-6 md:p-8 rounded-lg shadow-md">
         <p className="text-gray-700 mb-4">마지막 단계입니다! 사용할 닉네임을 입력해주세요.</p>
         <input
           type="text"
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
           placeholder="사용할 닉네임을 입력하세요"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
         />
         <button
           onClick={handleComplete}
           disabled={loading || nickname.trim().length === 0}
-          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 disabled:opacity-50"
+          className="w-full px-4 py-2 md:py-3 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 disabled:opacity-50"
         >
           {loading ? '설정 중...' : '완료하고 시작하기'}
         </button>

@@ -37,12 +37,7 @@ const ChatPage: React.FC = () => {
 
         if (chatroomsError) throw chatroomsError;
 
-        // Instead of sorting, separate into two lists
         const allChatroomsData: Chatroom[] = allChatrooms || [];
-        const joinedChatrooms = allChatroomsData.filter((c: Chatroom) => c.is_member);
-        const otherChatrooms = allChatroomsData.filter(c => !c.is_member);
-
-        // Set state with the original full list, we will separate in render
         setChatrooms(allChatroomsData);
 
       } catch (error: any) {
@@ -56,7 +51,7 @@ const ChatPage: React.FC = () => {
   }, []);
 
   if (loading) {
-    return <div>로딩 중...</div>;
+    return <div className="p-4 text-center">로딩 중...</div>;
   }
 
   // Separate chatrooms into joined and other for rendering
@@ -64,9 +59,9 @@ const ChatPage: React.FC = () => {
   const otherChatrooms = chatrooms.filter(c => !c.is_member);
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="mb-8 p-4 border rounded-lg bg-gray-50">
-        <h2 className="text-xl font-semibold">나의 관심사</h2>
+    <div className="p-2 md:p-4">
+      <div className="mb-8 p-3 md:p-4 border rounded-lg bg-gray-50">
+        <h2 className="text-lg md:text-xl font-semibold">나의 관심사</h2>
         <div className="flex flex-wrap gap-2 mt-2">
           {userInterests.length > 0 ? (
             userInterests.map(interest => (
@@ -82,27 +77,27 @@ const ChatPage: React.FC = () => {
 
       {/* Joined Chatrooms Section */}
       <div className="mb-12">
-        <h1 className="text-2xl font-bold mb-4">참여 중인 채팅방</h1>
-        <div className="space-y-4">
+        <h1 className="text-xl md:text-2xl font-bold mb-4">참여 중인 채팅방</h1>
+        <div className="space-y-3 md:space-y-4">
           {joinedChatrooms.length > 0 ? (
             joinedChatrooms.map((chatroom) => (
               <Link key={chatroom.id} href={`/chat/${chatroom.id}`}>
-                <div className="block p-4 border rounded-lg hover:bg-gray-200 cursor-pointer bg-blue-50">
+                <div className="block p-3 md:p-4 border rounded-lg hover:bg-gray-200 cursor-pointer bg-blue-50">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center">
-                      <h2 className="text-xl font-semibold">{chatroom.name}</h2>
+                      <h2 className="text-lg md:text-xl font-semibold">{chatroom.name}</h2>
                       <span className="ml-3 inline-block bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
                         참여 중
                       </span>
                     </div>
-                    <div className="flex items-center text-gray-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                    <div className="flex items-center text-gray-500 text-sm">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0115 11a5 5 0 011 9.9M9 12a5 5 0 00-5 5v1h10v-1a5 5 0 00-5-5z" />
                       </svg>
                       <span>{chatroom.participant_count}</span>
                     </div>
                   </div>
-                  <p className="text-gray-600 mt-1">{chatroom.description}</p>
+                  <p className="text-gray-600 mt-1 text-sm md:text-base">{chatroom.description}</p>
                 </div>
               </Link>
             ))
@@ -114,21 +109,21 @@ const ChatPage: React.FC = () => {
 
       {/* Other Chatrooms Section */}
       <div>
-        <h1 className="text-2xl font-bold mb-4">다른 채팅방</h1>
-        <div className="space-y-4">
+        <h1 className="text-xl md:text-2xl font-bold mb-4">다른 채팅방</h1>
+        <div className="space-y-3 md:space-y-4">
           {otherChatrooms.map((chatroom) => (
             <Link key={chatroom.id} href={`/chat/${chatroom.id}`}>
-              <div className="block p-4 border rounded-lg hover:bg-gray-100 cursor-pointer">
+              <div className="block p-3 md:p-4 border rounded-lg hover:bg-gray-100 cursor-pointer">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-semibold">{chatroom.name}</h2>
-                  <div className="flex items-center text-gray-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                  <h2 className="text-lg md:text-xl font-semibold">{chatroom.name}</h2>
+                  <div className="flex items-center text-gray-500 text-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                       <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0115 11a5 5 0 011 9.9M9 12a5 5 0 00-5 5v1h10v-1a5 5 0 00-5-5z" />
                     </svg>
                     <span>{chatroom.participant_count}</span>
                   </div>
                 </div>
-                <p className="text-gray-600 mt-1">{chatroom.description}</p>
+                <p className="text-gray-600 mt-1 text-sm md:text-base">{chatroom.description}</p>
               </div>
             </Link>
           ))}

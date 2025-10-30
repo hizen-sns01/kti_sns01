@@ -25,13 +25,13 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">SNS App 로그인</h1>
-      <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-md">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 px-4">
+      <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4 md:mb-6">SNS App 로그인</h1>
+      <div className="w-full max-w-md bg-white p-6 md:p-8 rounded-lg shadow-md">
         <button
           onClick={handleGoogleSignIn}
           disabled={loading}
-          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 disabled:opacity-50"
+          className="w-full px-4 py-2 md:py-3 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 disabled:opacity-50"
         >
           {loading ? 'Google 로그인 중...' : 'Google로 로그인'}
         </button>

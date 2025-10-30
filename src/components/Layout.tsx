@@ -35,24 +35,28 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   ];
 
   return (
-    <div>
-      <header className="bg-gray-800 text-white p-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold cursor-pointer" onClick={() => router.push('/chat')}>SNS App</h1>
+    // Add a max-width for mobile and center it, allowing it to grow on larger screens
+    <div className="max-w-2xl mx-auto">
+      <header className="bg-gray-800 text-white p-3 md:p-4 flex justify-between items-center">
+        <h1 className="text-lg md:text-xl font-bold cursor-pointer" onClick={() => router.push('/chat')}>SNS App</h1>
         {isLoggedIn && (
           <button
             onClick={handleLogout}
-            className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+            // Adjust padding and font size for mobile
+            className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 md:py-2 md:px-4 rounded text-sm md:text-base"
           >
             로그아웃
           </button>
         )}
       </header>
       
+      {/* For mobile, a bottom navigation is often better, but for now let's adjust the top nav */}
       <nav className="bg-white shadow-md">
         <div className="container mx-auto flex justify-around">
           {navItems.map((item) => (
             <Link key={item.label} href={item.href}>
-              <div className={`py-4 px-2 block text-center text-lg font-medium cursor-pointer ${router.pathname.startsWith(item.href) ? 'border-b-4 border-blue-500 text-blue-500' : 'text-gray-500 hover:text-blue-500'}`}>
+              {/* Adjust padding and font size for mobile */}
+              <div className={`py-3 px-2 block text-center text-base md:text-lg font-medium cursor-pointer ${router.pathname.startsWith(item.href) ? 'border-b-4 border-blue-500 text-blue-500' : 'text-gray-500 hover:text-blue-500'}`}>
                 {item.label}
               </div>
             </Link>
@@ -60,7 +64,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </div>
       </nav>
 
-      <main className="p-4">{children}</main>
+      {/* Adjust padding for mobile */}
+      <main className="p-2 md:p-4">{children}</main>
     </div>
   );
 };

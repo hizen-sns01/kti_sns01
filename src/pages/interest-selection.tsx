@@ -66,16 +66,16 @@ const InterestSelectionPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">관심사 선택</h1>
-      <div className="w-full max-w-2xl bg-white p-8 rounded-lg shadow-md">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-2 sm:p-4">
+      <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4 md:mb-6">관심사 선택</h1>
+      <div className="w-full max-w-2xl bg-white p-6 md:p-8 rounded-lg shadow-md">
         <p className="text-gray-700 mb-4">관심사를 선택하거나 직접 입력해주세요:</p>
         <div className="flex flex-wrap gap-2 mb-6">
           {predefinedInterests.map(interest => (
             <span
               key={interest}
               onClick={() => toggleInterest(interest)}
-              className={`cursor-pointer px-4 py-2 rounded-full text-sm font-medium
+              className={`cursor-pointer px-3 py-1.5 md:px-4 md:py-2 rounded-full text-sm font-medium
                 ${selectedInterests.includes(interest) ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
             >
               {interest}
@@ -93,7 +93,7 @@ const InterestSelectionPage: React.FC = () => {
             }}
             onKeyPress={(e) => e.key === 'Enter' && addCustomInterest()}
             placeholder="새로운 관심사 입력 (선택 사항)"
-            className="flex-grow px-4 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-grow px-3 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             onClick={addCustomInterest}
@@ -108,7 +108,7 @@ const InterestSelectionPage: React.FC = () => {
             <p className="text-gray-700 mb-2">선택된 관심사:</p>
             <div className="flex flex-wrap gap-2">
               {selectedInterests.map(interest => (
-                <span key={interest} className="px-4 py-2 rounded-full text-sm font-medium bg-blue-100 text-blue-800 flex items-center">
+                <span key={interest} className="px-3 py-1.5 md:px-4 md:py-2 rounded-full text-sm font-medium bg-blue-100 text-blue-800 flex items-center">
                   {interest}
                   <button onClick={() => toggleInterest(interest)} className="ml-2 text-blue-600 hover:text-blue-800 focus:outline-none">&times;</button>
                 </span>
@@ -122,7 +122,7 @@ const InterestSelectionPage: React.FC = () => {
         <button
           onClick={handleNext}
           disabled={loading || selectedInterests.length === 0}
-          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 disabled:opacity-50"
+          className="w-full px-4 py-2 md:py-3 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 disabled:opacity-50"
         >
           {loading ? '저장 중...' : '다음'}
         </button>
