@@ -29,7 +29,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   };
 
   const navItems = [
-    { href: '/chat', label: '홈' },
+    { href: '/', label: '홈' },
     { href: '/chat', label: '채팅' },
     { href: '/profile', label: '프로필' },
   ];

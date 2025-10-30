@@ -58,6 +58,14 @@ CREATE TABLE IF NOT EXISTS public.participants (
     UNIQUE(chatroom_id, user_id)
 );
 
+CREATE TABLE IF NOT EXISTS public.feeds (
+    id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    chatroom_id uuid REFERENCES public.chatrooms(id) ON DELETE CASCADE,
+    title text NOT NULL,
+    content text NOT NULL,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- 3. Seed data for chatrooms
 INSERT INTO public.chatrooms (name, description, interest) VALUES
 ('React', 'React, Next.js, and all things frontend.', 'Frontend'),
@@ -117,6 +125,11 @@ CREATE POLICY "Users can view participants in chatrooms they are in" ON public.p
 
 DROP POLICY IF EXISTS "Users can update their own participation record" ON public.participants;
 CREATE POLICY "Users can update their own participation record" ON public.participants FOR UPDATE USING ( user_id = auth.uid() ) WITH CHECK ( user_id = auth.uid() );
+
+-- Feeds Policies
+ALTER TABLE public.feeds ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Authenticated users can view feeds" ON public.feeds;
+CREATE POLICY "Authenticated users can view feeds" ON public.feeds FOR SELECT TO authenticated USING (true);
 
 
 -- 5. Realtime (Optional, run separately if needed)

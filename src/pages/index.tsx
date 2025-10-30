@@ -1,61 +1,37 @@
-import { useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { supabase } from '../supabaseClient';
+import React, { useState } from 'react';
+import SubscribedPosts from '../components/SubscribedPosts';
+import PopularPosts from '../components/PopularPosts';
 
-const IndexPage = () => {
-  const router = useRouter();
+type ActiveTab = 'subscribed' | 'popular';
 
-  useEffect(() => {
-    const checkUserAndRedirect = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+const HomePage: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<ActiveTab>('subscribed');
 
-      // If no user session, redirect to login page
-      if (!session) {
-        router.replace('/login');
-        return;
-      }
-
-      // If user session exists, check profile status
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('nickname, interests')
-        .eq('id', session.user.id)
-        .single();
-
-      // Handle potential error (excluding 'no rows found' which is a valid case)
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching profile:', error);
-        // Redirect to login on error, as we can't determine user state
-        router.replace('/login');
-        return;
-      }
-
-      // Redirect based on profile status
-      if (!profile || !profile.interests || profile.interests.length === 0) {
-        router.replace('/interest-selection');
-      } else if (!profile.nickname) {
-        router.replace('/nickname-setting');
-      } else {
-        // User is fully onboarded, trigger chatroom assignment and redirect to chat
-        // We still call the on-login API here to ensure chatrooms are assigned on every login
-        await fetch('/api/auth/on-login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user: session.user }),
-        });
-        router.replace('/chat');
-      }
-    };
-
-    checkUserAndRedirect();
-  }, [router]);
-
-  // This page will show a loading indicator while redirecting
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <p>로딩 중...</p>
+    <div>
+      {/* Sub-tab Navigation */}
+      <div className="mb-4 border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+          <button
+            onClick={() => setActiveTab('subscribed')}
+            className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg ${activeTab === 'subscribed' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>
+            구독글
+          </button>
+          <button
+            onClick={() => setActiveTab('popular')}
+            className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg ${activeTab === 'popular' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>
+            인기글
+          </button>
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      <div>
+        {activeTab === 'subscribed' && <SubscribedPosts />}
+        {activeTab === 'popular' && <PopularPosts />}
+      </div>
     </div>
   );
 };
 
-export default IndexPage;
+export default HomePage;
