@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/curator/idle-starter",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 */2 * * *"
     },
     {
       "path": "/api/curator/news-sharer",
