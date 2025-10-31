@@ -1,12 +1,3 @@
 {
-  "crons": [
-    {
-      "path": "/api/curator/idle-starter",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/curator/news-sharer",
-      "schedule": "0 */4 * * *"
-    }
-  ]
+  "crons": []
 }

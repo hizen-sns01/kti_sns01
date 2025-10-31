@@ -38,7 +38,8 @@ CREATE TABLE IF NOT EXISTS public.chatrooms (
     name text NOT NULL,
     description text,
     interest text UNIQUE,
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    last_message_at timestamp with time zone DEFAULT now() NOT NULL -- Added for AI Curator
 );
 
 CREATE TABLE IF NOT EXISTS public.messages (
@@ -46,7 +47,8 @@ CREATE TABLE IF NOT EXISTS public.messages (
     chatroom_id uuid REFERENCES public.chatrooms(id) NOT NULL,
     user_id uuid REFERENCES auth.users(id) NOT NULL,
     content text NOT NULL,
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    is_ai_curator boolean DEFAULT false NOT NULL -- Added for AI Curator
 );
 
 CREATE TABLE IF NOT EXISTS public.participants (
@@ -65,6 +67,25 @@ CREATE TABLE IF NOT EXISTS public.feeds (
     content text NOT NULL,
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Function to update last_message_at in chatrooms table (for AI Curator)
+CREATE OR REPLACE FUNCTION public.update_last_message_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE public.chatrooms
+  SET last_message_at = now()
+  WHERE id = NEW.chatroom_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to execute the function after a new message is inserted (for AI Curator)
+DROP TRIGGER IF EXISTS on_new_message ON public.messages;
+CREATE TRIGGER on_new_message
+  AFTER INSERT ON public.messages
+  FOR EACH ROW
+  EXECUTE PROCEDURE public.update_last_message_at();
+
 
 -- 3. Seed data for chatrooms
 INSERT INTO public.chatrooms (name, description, interest) VALUES
