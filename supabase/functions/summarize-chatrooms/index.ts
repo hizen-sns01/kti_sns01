@@ -1,14 +1,13 @@
-import { createClient } from '@supabase/supabase-js'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Supabase and Gemini clients
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!)
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+// Initialize Supabase client
+const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_KEY')!)
 
 // Main function to handle the request
-async function handler(req: Request): Promise<Response> {
+async function handler(_req: Request): Promise<Response> {
   try {
-    // 1. Fetch recently active chatrooms (e.g., messages in the last 24 hours)
+    // 1. Fetch recently active chatrooms
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
     const { data: chatrooms, error: chatroomsError } = await supabase
@@ -18,8 +17,7 @@ async function handler(req: Request): Promise<Response> {
     
     if (chatroomsError) throw chatroomsError
 
-    // Get unique chatroom IDs
-    const uniqueChatroomIds = [...new Set(chatrooms.map(c => c.chatroom_id))]
+    const uniqueChatroomIds = Array.from(new Set(chatrooms.map(c => c.chatroom_id)))
 
     if (uniqueChatroomIds.length === 0) {
       return new Response(JSON.stringify({ message: 'No active chatrooms to summarize.' }), {
@@ -39,25 +37,39 @@ async function handler(req: Request): Promise<Response> {
 
       if (messagesError) {
         console.error(`Error fetching messages for chatroom ${chatroomId}:`, messagesError)
-        continue // Skip to the next chatroom
-      }
-
-      if (messages.length < 10) { // Don't summarize very short conversations
         continue
       }
 
-      // 3. Generate summary with Gemini
+      if (messages.length < 10) {
+        continue
+      }
+
+      // 3. Generate summary with Gemini using fetch
       const conversation = messages.map(m => m.content).join('\n')
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' })
-      const prompt = `다음 대화 내용의 핵심 주제를 3~5개의 불렛 포인트로 요약해줘. 각 요약은 1-2문장으로 작성해줘. 이 요약은 '오늘의 대화 요약'이라는 제목으로 게시될거야.
+      const prompt = `다음 대화 내용의 핵심 주제를 3~5개의 불렛 포인트로 요약해줘. 각 요약은 1-2문장으로 작성해줘. 이 요약은 '오늘의 대화 요약'이라는 제목으로 게시될거야.\n\n---\n${conversation}`
+      
+      const geminiApiKey = Deno.env.get('GEMINI_API_KEY')
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`;
 
----
-${conversation}`
+      const geminiResponse = await fetch(geminiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        })
+      });
 
-      const result = await model.generateContent(prompt)
-      const summary = await result.response.text()
+      if (!geminiResponse.ok) {
+        const errorBody = await geminiResponse.text();
+        console.error(`Gemini API error for chatroom ${chatroomId}:`, errorBody);
+        continue;
+      }
 
-      // 4. Insert the summary into the feeds table
+      const geminiData = await geminiResponse.json();
+      const summary = geminiData.candidates[0].content.parts[0].text;
+
+      // 4. Insert the summary into a different table (e.g., 'summaries')
+      // Avoid inserting back into messages to prevent loops and confusion
       const { error: insertError } = await supabase.from('feeds').insert({
         chatroom_id: chatroomId,
         title: '오늘의 대화 요약',

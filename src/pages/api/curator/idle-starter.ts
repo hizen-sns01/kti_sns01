@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const aiUserId = '4bb3e1a3-099b-4b6c-bf3a-8b60c51baa79';
-  const IDLE_THRESHOLD_MINUTES = 30;
+  const IDLE_THRESHOLD_MINUTES = 1440; // 24 hours
 
   try {
     // 1. Find all chatrooms that have been idle for more than the threshold

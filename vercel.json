@@ -1,3 +1,16 @@
 {
+<<<<<<< HEAD
   "crons": []
+=======
+  "crons": [
+    {
+      "path": "/api/curator/idle-starter",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/curator/news-sharer",
+      "schedule": "0 0 * * *"
+    }
+  ]
+>>>>>>> 1da66aa0e6dd7b993db34a1ccfc6407b3cef581c
 }
