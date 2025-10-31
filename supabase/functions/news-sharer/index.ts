@@ -1,21 +1,118 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
-// Placeholder for a real search API call
+// Calls the Google Custom Search API to find a real article.
+// The user must set GOOGLE_API_KEY and GOOGLE_CX in their Supabase project secrets.
 async function findLatestArticle(interest: string): Promise<{ title: string; url: string } | null> {
   console.log(`Searching for articles about: ${interest}`);
-  // Mock result for simulation
-  return {
-    title: `The Future of ${interest}: A 2025 Perspective`,
-    url: `https://example.com/news/${interest}-2025`
-  };
+
+  const apiKey = Deno.env.get('GOOGLE_API_KEY');
+  const searchEngineId = Deno.env.get('GOOGLE_CX');
+
+  if (!apiKey || !searchEngineId) {
+    console.error("Google API key or Search Engine ID is not set in environment variables.");
+    // In a real scenario, you might want to throw an error or handle this differently.
+    // For now, we'll return null to prevent the function from crashing.
+    return null;
+  }
+
+  const query = encodeURIComponent(`latest news on ${interest}`);
+  const endpoint = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${searchEngineId}&q=${query}`;
+
+  try {
+    const response = await fetch(endpoint);
+    if (!response.ok) {
+      throw new Error(`Google Search API request failed with status: ${response.status}`);
+    }
+    const data = await response.json();
+
+    if (!data.items || data.items.length === 0) {
+      console.log(`No articles found for interest: ${interest}`);
+      return null;
+    }
+
+    // Return the title and URL of the first result
+    const firstResult = data.items[0];
+    return {
+      title: firstResult.title,
+      url: firstResult.link,
+    };
+  } catch (error) {
+    console.error('Error calling Google Search API:', error);
+    return null;
+  }
 }
 
-// Placeholder for the actual Gemini API call
+// Fetches article content, summarizes it using the Gemini API, and creates a prompt.
+// The user must set GEMINI_API_KEY in their Supabase project secrets.
 async function summarizeAndPrompt(articleTitle: string, articleUrl: string, context: string): Promise<string> {
-  console.log(`Summarizing article for context: ${context}`);
-  const response = `**Interesting article on ${context}!**\n\n*${articleTitle}*\n\nI found this piece on the web. It seems to suggest... (AI-generated summary would go here). What does everyone think about this? Does it align with your experiences?\n\nRead more: ${articleUrl}`;
-  return response;
+  console.log(`Summarizing article: ${articleTitle}`);
+
+  // 1. Fetch article content
+  let articleText = '';
+  try {
+    const response = await fetch(articleUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch article with status: ${response.status}`);
+    }
+    const html = await response.text();
+    // NOTE: This is a very basic way to strip HTML tags.
+    // For a production environment, a more robust HTML parsing library would be better.
+    articleText = html.replace(/<[^>]*>/g, '').replace(/\s\s+/g, ' ').trim();
+  } catch (error) {
+    console.error(`Error fetching article content from ${articleUrl}:`, error);
+    // Fallback to a simpler message if fetching fails
+    return `I found an interesting article titled "${articleTitle}" but couldn't fetch the content. You can read it here: ${articleUrl}`;
+  }
+
+  // 2. Summarize using Gemini API
+  const apiKey = Deno.env.get('GEMINI_API_KEY');
+  if (!apiKey) {
+    console.error("GEMINI_API_KEY is not set in environment variables.");
+    // Fallback message if API key is missing
+    return `I found an interesting article titled "${articleTitle}". An AI summary would go here, but the API key is missing. Read it here: ${articleUrl}`;
+  }
+
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
+  
+  // Truncate article text to avoid exceeding API limits
+  const maxTextLength = 10000; // Adjust as needed
+  const truncatedText = articleText.substring(0, maxTextLength);
+
+  const prompt = `Based on the article content below, write a short, engaging summary (2-3 sentences) and then ask a thought-provoking question to start a discussion. The discussion is for a chatroom about "${context}".\n\n---\n\nARTICLE CONTENT:\n${truncatedText}`;
+
+  const requestBody = {
+    contents: [{ parts: [{ text: prompt }] }],
+  };
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error(`Gemini API error: ${response.status}`, errorData);
+      throw new Error('Gemini API request failed');
+    }
+
+    const data = await response.json();
+    const aiGeneratedContent = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!aiGeneratedContent) {
+      throw new Error("No content generated by AI.");
+    }
+
+    // 3. Format the final message
+    return `**${articleTitle}**\n\n${aiGeneratedContent}\n\nRead more: ${articleUrl}`;
+
+  } catch (error) {
+    console.error('Error calling Gemini API:', error);
+    // Fallback message if API call fails
+    return `I found an interesting article: *${articleTitle}*. The AI summary is currently unavailable. You can read the full article here: ${articleUrl}`;
+  }
 }
 
 Deno.serve(async (req) => {
