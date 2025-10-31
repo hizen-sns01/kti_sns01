@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
 
     if (interestsError) throw new Error(interestsError.message);
 
-    const uniqueInterests = [...new Set(interestsData?.map(i => i.interest).filter(Boolean))];
+    const uniqueInterests = Array.from(new Set(interestsData?.map(i => i.interest).filter(Boolean)));
 
     console.log(`Found ${uniqueInterests.length} unique interests to search for.`);
 
@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
       status: 200,
     });
 
-  } catch (error: any) { 
+  } catch (error) {
     console.error('Error in news-sharer handler:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
