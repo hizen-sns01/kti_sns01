@@ -74,6 +74,7 @@ const ChatroomPage: React.FC = () => {
             .from('profiles')
             .select('nickname')
             .eq('id', newMessage.user_id)
+            .limit(1)
             .single();
           
           if (error) {
