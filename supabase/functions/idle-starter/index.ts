@@ -13,7 +13,7 @@ async function getIdleTopic(context: string): Promise<string> {
     return `Let's talk about ${context}. What's something interesting you've learned recently?`;
   }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
   
   const prompt = `You are an AI curator in a chatroom. Your goal is to spark conversation in a room that has gone quiet. The topic of the chatroom is "${context}". Generate one single, engaging, open-ended question to get people talking again. Keep it friendly and concise.`;
 

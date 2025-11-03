@@ -73,7 +73,7 @@ async function summarizeAndPrompt(articleTitle: string, articleUrl: string, cont
     return `I found an interesting article titled "${articleTitle}". An AI summary would go here, but the API key is missing. Read it here: ${articleUrl}`;
   }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
   
   // Truncate article text to avoid exceeding API limits
   const maxTextLength = 10000; // Adjust as needed
