@@ -14,7 +14,7 @@ async function getRealGeminiResponse(question: string, context: string): Promise
   // PRD에 명시된 모델과 프롬프트 전략을 적용합니다.
   const model = genAI.getGenerativeModel({
     model: "gemini-1.5-flash",
-    systemInstruction: `You are an expert AI curator in a chat room about ${context}. Answer the user's question clearly and concisely.`,
+    systemInstruction: `당신은 ${context} 주제의 채팅방을 담당하는 전문 AI 큐레이터입니다. 사용자의 질문에 대해 명확하고 간결하게 한국어로 답변해주세요.`,
   });
 
   const result = await model.generateContent(question);
