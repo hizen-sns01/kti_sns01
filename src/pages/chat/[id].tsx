@@ -2,13 +2,14 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../supabaseClient';
 import { User } from '@supabase/supabase-js';
+import botcall from '../../botcall.json';
 
 interface Message {
   id: number;
   user_id: string;
   content: string;
   created_at: string;
-  chatroom_id: string; // Added for API call
+  chatroom_id: string;
   profiles: {
     nickname: string;
   } | null;
@@ -57,7 +58,7 @@ const ChatroomPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!id) return; // Ensure id is available
+    if (!id) return;
 
     fetchMessages();
 
@@ -68,30 +69,7 @@ const ChatroomPage: React.FC = () => {
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` },
         async (payload) => {
           const newMessage = payload.new as Message;
-          const aiUserId = '4bb3e1a3-099b-4b6c-bf3a-8b60c51baa79';
 
-          // Check for AI curator keyword, but ignore messages from the AI itself
-          if (newMessage.user_id !== aiUserId && newMessage.content.includes('@큐레이터')) {
-            const question = newMessage.content.split('@큐레이터')[1]?.trim();
-
-            if (question) {
-              // Call the API endpoint without waiting for it to finish
-              fetch('/api/curator/qa-handler', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  question: question,
-                  chatroomId: newMessage.chatroom_id,
-                }),
-              }).catch(error => {
-                console.error('Failed to call QA handler:', error);
-              });
-            }
-          }
-
-          // Fetch profile for the new message to display it correctly
           const { data: profileData, error } = await supabase
             .from('profiles')
             .select('nickname')
@@ -120,10 +98,42 @@ const ChatroomPage: React.FC = () => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newMessage.trim() === '' || !currentUser || !id) return;
+    const trimmedMessage = newMessage.trim();
+    if (trimmedMessage === '' || !currentUser || !id) return;
+
+    const keywords = botcall.keywords;
+    let isBotCall = false;
+    let question = '';
+
+    for (const keyword of keywords) {
+      if (trimmedMessage.startsWith(keyword)) {
+        question = trimmedMessage.substring(keyword.length).trim();
+        isBotCall = true;
+        break;
+      }
+    }
+
+    if (isBotCall) {
+      if (question) {
+        fetch('/api/curator/qa-handler', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            question: question,
+            chatroomId: id,
+          }),
+        }).catch(error => {
+          console.error('Failed to call QA handler:', error);
+        });
+      }
+      setNewMessage('');
+      return;
+    }
 
     const { error } = await supabase.from('messages').insert([
-      { chatroom_id: id, user_id: currentUser.id, content: newMessage.trim() },
+      { chatroom_id: id, user_id: currentUser.id, content: trimmedMessage },
     ]);
 
     if (error) {
@@ -186,7 +196,7 @@ const ChatroomPage: React.FC = () => {
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             className="flex-grow border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="메시지를 입력하세요... (@큐레이터 호출 가능)"
+            placeholder={`메시지를 입력하세요... (${botcall.keywords.join(', ')}로 질문 가능)`}
           />
           <button
             type="submit"
