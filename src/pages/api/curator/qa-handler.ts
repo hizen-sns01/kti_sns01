@@ -1,9 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { supabase } from '../../../supabaseClient';
-// Google AI SDK import
+import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Initialize the Google AI Client with the API key from environment variables
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 async function getRealGeminiResponse(question: string, context: string): Promise<string> {
@@ -11,7 +9,6 @@ async function getRealGeminiResponse(question: string, context: string): Promise
     throw new Error("GEMINI_API_KEY environment variable is not set.");
   }
 
-  // PRD에 명시된 모델과 프롬프트 전략을 적용합니다.
   const model = genAI.getGenerativeModel({
     model: "gemini-1.5-flash",
     systemInstruction: `당신은 ${context} 주제의 채팅방을 담당하는 전문 AI 큐레이터입니다. 사용자의 질문에 대해 명확하고 간결하게 한국어로 답변해주세요.`,
@@ -35,7 +32,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { data: chatroomData, error: chatroomError } = await supabase
+    // Create a Supabase client with the service role key to bypass RLS
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    );
+
+    const { data: chatroomData, error: chatroomError } = await supabaseAdmin
       .from('chatrooms')
       .select('interest')
       .eq('id', chatroomId)
@@ -47,10 +50,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const topicContext = chatroomData.interest || 'general';
 
-    // *** 여기가 핵심: Placeholder 대신 실제 Gemini API 호출 함수를 사용합니다. ***
     const aiResponse = await getRealGeminiResponse(question, topicContext);
 
-    const { error: insertError } = await supabase.from('messages').insert({
+    const { error: insertError } = await supabaseAdmin.from('messages').insert({
       chatroom_id: chatroomId,
       user_id: aiUserId,
       content: aiResponse,
