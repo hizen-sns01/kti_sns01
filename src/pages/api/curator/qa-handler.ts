@@ -10,7 +10,7 @@ async function getRealGeminiResponse(question: string, context: string): Promise
   }
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: "gemini-2.5-flash-lite",
     systemInstruction: `당신은 ${context} 주제의 채팅방을 담당하는 전문 AI 큐레이터입니다. 사용자의 질문에 대해 명확하고 간결하게 한국어로 답변해주세요.`,
   });
 
