@@ -115,21 +115,37 @@ const ChatroomPage: React.FC = () => {
     }
 
     if (isBotCall) {
-      if (question) {
-        fetch('/api/curator/qa-handler', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            question: question,
-            chatroomId: id,
-          }),
-        }).catch(error => {
-          console.error('Failed to call QA handler:', error);
-        });
-      }
       setNewMessage('');
+      if (question) {
+        try {
+          const response = await fetch('/api/curator/qa-handler', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              question: question,
+              chatroomId: id,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'AI 응답 생성 중 서버에서 오류가 발생했습니다.');
+          }
+
+        } catch (error: any) {
+          const errorMessage: Message = {
+            id: Date.now(),
+            user_id: '4bb3e1a3-099b-4b6c-bf3a-8b60c51baa79', // AI Curator's user ID
+            content: `오류: AI 큐레이터 호출에 실패했습니다. (${error.message})`,
+            created_at: new Date().toISOString(),
+            chatroom_id: id as string,
+            profiles: { nickname: 'AI 큐레이터' } // Manually set profile for display
+          };
+          setMessages((prevMessages) => [...prevMessages, errorMessage]);
+        }
+      }
       return;
     }
 
