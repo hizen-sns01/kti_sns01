@@ -175,3 +175,72 @@ CREATE POLICY "Users can delete their own likes" ON public.message_likes FOR DEL
 
 -- 5. Realtime (Optional, run separately if needed)
 -- ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
+
+CREATE TABLE post_likes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id UUID REFERENCES feeds(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(post_id, user_id)
+);
+
+CREATE TABLE post_dislikes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id UUID REFERENCES feeds(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(post_id, user_id)
+);
+
+CREATE TABLE post_comments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id UUID REFERENCES feeds(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE message_dislikes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id BIGINT REFERENCES messages(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(message_id, user_id)
+);
+
+CREATE TABLE message_comments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id BIGINT REFERENCES messages(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS Policies for new tables
+
+ALTER TABLE public.post_likes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view all likes" ON public.post_likes FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Users can insert their own likes" ON public.post_likes FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own likes" ON public.post_likes FOR DELETE USING (auth.uid() = user_id);
+
+ALTER TABLE public.post_dislikes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view all dislikes" ON public.post_dislikes FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Users can insert their own dislikes" ON public.post_dislikes FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own dislikes" ON public.post_dislikes FOR DELETE USING (auth.uid() = user_id);
+
+ALTER TABLE public.post_comments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view all comments" ON public.post_comments FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Users can insert their own comments" ON public.post_comments FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own comments" ON public.post_comments FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own comments" ON public.post_comments FOR DELETE USING (auth.uid() = user_id);
+
+ALTER TABLE public.message_dislikes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view all dislikes" ON public.message_dislikes FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Users can insert their own dislikes" ON public.message_dislikes FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own dislikes" ON public.message_dislikes FOR DELETE USING (auth.uid() = user_id);
+
+ALTER TABLE public.message_comments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view all comments" ON public.message_comments FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Users can insert their own comments" ON public.message_comments FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own comments" ON public.message_comments FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own comments" ON public.message_comments FOR DELETE USING (auth.uid() = user_id);

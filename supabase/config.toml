@@ -329,6 +329,9 @@ deno_version = 2
 [functions.idle-starter]
 schedule = "0 * * * *"
 
+[functions.news-sharer]
+schedule = "0 0 * * *"
+
 [analytics]
 enabled = true
 port = 54327
