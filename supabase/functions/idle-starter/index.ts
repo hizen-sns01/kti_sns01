@@ -90,13 +90,25 @@ Deno.serve(async (req) => {
     const idleRoomsToProcess = allChatrooms.filter(room => {
       const thresholdMinutes = room.idle_threshold_minutes;
       
-      // If no threshold is set for this room, or it's not a positive number, ignore it.
       if (!thresholdMinutes || typeof thresholdMinutes !== 'number' || thresholdMinutes <= 0) {
         return false;
       }
 
       const thresholdTime = new Date(now.getTime() - thresholdMinutes * 60 * 1000);
-      return new Date(room.last_message_at) < thresholdTime;
+      const lastMessageTime = new Date(room.last_message_at);
+      const isIdle = lastMessageTime < thresholdTime;
+
+      // --- START OF NEW LOGGING CODE ---
+      console.log(`
+        --- Checking Room: ${room.id} ---
+        Last Message Time: ${lastMessageTime.toISOString()}
+        Threshold (minutes): ${thresholdMinutes}
+        Calculated Threshold Time: ${thresholdTime.toISOString()}
+        Is Idle? (${lastMessageTime.toISOString()} < ${thresholdTime.toISOString()}): ${isIdle}
+      `);
+      // --- END OF NEW LOGGING CODE ---
+
+      return isIdle;
     });
 
     if (idleRoomsToProcess.length === 0) {
