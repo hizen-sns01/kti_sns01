@@ -172,6 +172,9 @@ const ChatroomPage: React.FC = () => {
           {messages.map((message) => {
             const isCurrentUser = message.user_id === currentUser?.id;
             const isAiCurator = message.user_id === '4bb3e1a3-099b-4b6c-bf3a-8b60c51baa79';
+            
+            const commandKeywords = botcall.keywords || [];
+            const isCommand = !isAiCurator && commandKeywords.some(keyword => message.content.startsWith(keyword));
 
             return (
               <div
@@ -180,23 +183,33 @@ const ChatroomPage: React.FC = () => {
               >
                 <div className="flex items-end max-w-xs md:max-w-md">
                   {!isCurrentUser && !isAiCurator && (
-                     <div className="mr-2 text-xs text-gray-500 text-center">
+                     <div className="mr-2 text-xs text-gray-500 text-center self-center">
                         <div className="w-8 h-8 rounded-full bg-gray-300 mb-1"></div>
                         {message.profiles?.nickname || '...'}
                      </div>
                   )}
-                  <div
-                    className={`px-4 py-2 rounded-lg ${
-                      isCurrentUser
-                        ? 'bg-blue-500 text-white rounded-br-none'
-                        : isAiCurator
-                        ? 'bg-green-500 text-white rounded-bl-none' // Different color for AI
-                        : 'bg-gray-200 text-gray-800 rounded-bl-none'
-                    }`}
-                  >
-                    {isAiCurator && <strong className='block text-xs mb-1'>AI 큐레이터</strong>}
-                    {message.content}
-                  </div>
+                  
+                  {isCommand ? (
+                    <div className="bg-gray-700 text-gray-100 px-4 py-3 rounded-lg shadow-md flex items-center font-mono">
+                      <svg className="w-5 h-5 mr-3 text-blue-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                      </svg>
+                      <span>{message.content}</span>
+                    </div>
+                  ) : (
+                    <div
+                      className={`px-4 py-2 rounded-lg ${
+                        isCurrentUser
+                          ? 'bg-blue-500 text-white rounded-br-none'
+                          : isAiCurator
+                          ? 'bg-green-500 text-white rounded-bl-none' // Different color for AI
+                          : 'bg-gray-200 text-gray-800 rounded-bl-none'
+                      }`}
+                    >
+                      {isAiCurator && <strong className='block text-xs mb-1'>AI 큐레이터</strong>}
+                      {message.content}
+                    </div>
+                  )}
                 </div>
               </div>
             );
