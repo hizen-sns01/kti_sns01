@@ -4,7 +4,7 @@ import { supabase } from '../../supabaseClient';
 import { User } from '@supabase/supabase-js';
 import botcall from '../../botcall.json';
 
-import MessageCommentsModal from '../../../components/MessageCommentsModal';
+import MessageCommentsModal from '../../components/MessageCommentsModal';
 
 interface Message {
   id: number;
