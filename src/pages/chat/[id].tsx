@@ -144,45 +144,7 @@ const ChatroomPage: React.FC = () => {
             const isAiCurator = message.user_id === '4bb3e1a3-099b-4b6c-bf3a-8b60c51baa79';
             const isCommand = !isAiCurator && botcall.keywords.some(keyword => message.content.startsWith(keyword));
 
-            return (
-              <div key={message.id} className={`flex w-full items-end ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
-                <div className={`flex items-end max-w-xs md:max-w-md ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                  {/* Avatar Area */}
-                  <div className="mx-2 flex shrink-0 flex-col items-center self-center text-xs text-gray-500">
-                    {!isCurrentUser && (
-                      <>
-                        {isAiCurator ? (
-                          <div className="relative h-8 w-8 rounded-full bg-green-200">
-                            <svg className="h-full w-full p-1.5 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                          </div>
-                        ) : (
-                          <div className="h-8 w-8 rounded-full bg-gray-300"></div>
-                        )}
-                        <div className="mt-1 w-12 truncate">{message.profiles?.nickname || (isAiCurator ? 'AI' : '...')}</div>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Bubble Area */}
-                  <div>
-                    {isCommand ? (
-                      <div className="bg-gray-700 text-gray-100 px-4 py-3 rounded-lg shadow-md flex items-center font-mono">
-                        <svg className="w-5 h-5 mr-3 text-yellow-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M9 3v4M7 5h4m5 3v4m-2-2h4m-7 7v4m-2-2h4" />
-                        </svg>
-                        <span>{message.content}</span>
-                      </div>
-                    ) : (
-                      <div className={`px-4 py-2 rounded-lg ${isCurrentUser ? 'bg-blue-500 text-white rounded-br-none' : isAiCurator ? 'bg-green-500 text-white rounded-bl-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'}`}>
-                        {isAiCurator && <strong className='block text-xs mb-1'>AI 큐레이터</strong>}
-                        {message.content}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          }}
+            return <div key={message.id}>{message.content}</div>;          }}
         </div>
         <div ref={messagesEndRef} />
       </div>
