@@ -22,8 +22,6 @@ interface Message {
   user_has_disliked: boolean;
 }
 
-const messagesCache: { [key: string]: Message[] } = {};
-
 const ChatroomPage: React.FC = () => {
   const router = useRouter();
   const { id } = router.query;
@@ -51,16 +49,37 @@ const ChatroomPage: React.FC = () => {
   const fetchMessages = async () => {
     if (!id) return;
 
-    if (messagesCache[id as string]) {
-      setMessages(messagesCache[id as string]);
-      setLoading(false);
-      return;
-    }
+    setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const processMessages = async (data: any[]) => {
+      return Promise.all(data.map(async (item) => {
+        const { data: likeData } = await supabase.from('message_likes').select('*').eq('message_id', item.id).eq('user_id', user?.id).single();
+        const { data: dislikeData } = await supabase.from('message_dislikes').select('*').eq('message_id', item.id).eq('user_id', user?.id).single();
+        return {
+          ...item,
+          like_count: item.message_likes[0]?.count || 0,
+          dislike_count: item.message_dislikes[0]?.count || 0,
+          comment_count: item.message_comments[0]?.count || 0,
+          user_has_liked: !!likeData,
+          user_has_disliked: !!dislikeData,
+        };
+      }));
+    };
 
     try {
-      setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data, error } = await supabase
+      const cachedMessagesJson = localStorage.getItem(`messages_${id}`);
+      let lastMessageTimestamp: string | null = null;
+
+      if (cachedMessagesJson) {
+        const cachedMessages = JSON.parse(cachedMessagesJson);
+        if (cachedMessages.length > 0) {
+          setMessages(cachedMessages);
+          lastMessageTimestamp = cachedMessages[cachedMessages.length - 1].created_at;
+        }
+      }
+
+      let query = supabase
         .from('messages')
         .select(`*,
           profiles(nickname),
@@ -71,38 +90,31 @@ const ChatroomPage: React.FC = () => {
         .eq('chatroom_id', id)
         .order('created_at', { ascending: true });
 
+      if (lastMessageTimestamp) {
+        query = query.gt('created_at', lastMessageTimestamp);
+      }
+
+      const { data, error } = await query;
+
       if (error) throw error;
 
-      const messagesWithLikes = await Promise.all(data.map(async (item) => {
-        const { data: likeData } = await supabase
-          .from('message_likes')
-          .select('*')
-          .eq('message_id', item.id)
-          .eq('user_id', user?.id)
-          .single();
+      if (data && data.length > 0) {
+        const newMessages = await processMessages(data);
+        setMessages(prevMessages => {
+          const messageMap = new Map(prevMessages.map(m => [m.id, m]));
+          newMessages.forEach(m => messageMap.set(m.id, m));
+          return Array.from(messageMap.values()).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        });
+      }
 
-        const { data: dislikeData } = await supabase
-          .from('message_dislikes')
-          .select('*')
-          .eq('message_id', item.id)
-          .eq('user_id', user?.id)
-          .single();
+      if (!lastMessageTimestamp) {
+        await supabase.rpc('update_last_read_at', { chatroom_id_param: id });
+      }
 
-        return {
-          ...item,
-          like_count: item.message_likes[0]?.count || 0,
-          dislike_count: item.message_dislikes[0]?.count || 0,
-          comment_count: item.message_comments[0]?.count || 0,
-          user_has_liked: !!likeData,
-          user_has_disliked: !!dislikeData,
-        };
-      }));
-
-      messagesCache[id as string] = messagesWithLikes || [];
-      setMessages(messagesWithLikes || []);
-      await supabase.rpc('update_last_read_at', { chatroom_id_param: id });
     } catch (error: any) {
       console.error('Error fetching messages:', error.message);
+      // If there's an error, it might be due to corrupted cache. Clear it and try again.
+      localStorage.removeItem(`messages_${id}`);
     } finally {
       setLoading(false);
     }
@@ -113,53 +125,8 @@ const ChatroomPage: React.FC = () => {
     fetchMessages();
 
     const channel = supabase.channel(`chatroom:${id}`);
-    const messageSubscription = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` }, async (payload) => {
-      const newMessagePayload = payload.new as Message;
-      const { data: profileData, error } = await supabase.from('profiles').select('nickname').eq('id', newMessagePayload.user_id).single();
-      if (error) {
-        console.error("Error fetching profile for new message:", error);
-      } else {
-        newMessagePayload.profiles = profileData;
-      }
-
-      const { data: { user } } = await supabase.auth.getUser();
-
-      const { data: likeData } = await supabase
-        .from('message_likes')
-        .select('*')
-        .eq('message_id', newMessagePayload.id)
-        .eq('user_id', user?.id)
-        .single();
-
-      const { data: dislikeData } = await supabase
-        .from('message_dislikes')
-        .select('*')
-        .eq('message_id', newMessagePayload.id)
-        .eq('user_id', user?.id)
-        .single();
-
-      const { count: likeCount } = await supabase
-        .from('message_likes')
-        .select('count', { count: 'exact' })
-        .eq('message_id', newMessagePayload.id);
-
-      const { count: dislikeCount } = await supabase
-        .from('message_dislikes')
-        .select('count', { count: 'exact' })
-        .eq('message_id', newMessagePayload.id);
-
-      const { count: commentCount } = await supabase
-        .from('message_comments')
-        .select('count', { count: 'exact' })
-        .eq('message_id', newMessagePayload.id);
-
-      newMessagePayload.like_count = likeCount || 0;
-      newMessagePayload.dislike_count = dislikeCount || 0;
-      newMessagePayload.comment_count = commentCount || 0;
-      newMessagePayload.user_has_liked = !!likeData;
-      newMessagePayload.user_has_disliked = !!dislikeData;
-
-      setMessages((prev) => [...prev, newMessagePayload]);
+    const messageSubscription = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` }, (payload) => {
+      fetchMessages();
     });
 
     channel.subscribe();
@@ -169,6 +136,12 @@ const ChatroomPage: React.FC = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (id) {
+      localStorage.setItem(`messages_${id}`, JSON.stringify(messages));
+    }
+  }, [messages, id]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
