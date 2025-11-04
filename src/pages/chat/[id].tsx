@@ -10,9 +10,6 @@ interface Message {
   content: string;
   created_at: string;
   chatroom_id: string;
-  is_deleted?: boolean;
-  like_count?: number;
-  user_has_liked?: boolean;
   profiles: {
     nickname: string;
   } | null;
@@ -25,6 +22,11 @@ const ChatroomPage: React.FC = () => {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  
+  // For suggestions feature
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,31 +38,18 @@ const ChatroomPage: React.FC = () => {
   }, []);
 
   const fetchMessages = async () => {
-    if (!id || !currentUser) return;
+    if (!id) return;
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('messages')
-        .select(`
-          *,
-          profiles ( nickname ),
-          user_has_liked:message_likes ( user_id )
-        `)
+        .select(`*, profiles(nickname)`)
         .eq('chatroom_id', id)
-        .eq('message_likes.user_id', currentUser.id)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      
-      const processedMessages = data.map(msg => ({
-        ...msg,
-        user_has_liked: msg.user_has_liked.length > 0,
-      }));
-
-      setMessages(processedMessages || []);
-
+      setMessages(data || []);
       await supabase.rpc('update_last_read_at', { chatroom_id_param: id });
-
     } catch (error: any) {
       console.error('Error fetching messages:', error.message);
     } finally {
@@ -69,81 +58,47 @@ const ChatroomPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (id && currentUser) {
-      fetchMessages();
-    }
-  }, [id, currentUser]);
-
-  useEffect(() => {
     if (!id) return;
+    fetchMessages();
 
-    const handleNewOrUpdatedMessage = (payload: any) => {
-      const updatedMessage = payload.new as Message;
-      setMessages(prevMessages => {
-        const messageExists = prevMessages.find(m => m.id === updatedMessage.id);
-        if (messageExists) {
-          // It's an update
-          return prevMessages.map(m => m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m);
-        } else {
-          // It's an insert
-          return [...prevMessages, updatedMessage];
-        }
-      });
-    };
+    const channel = supabase.channel(`chatroom:${id}`);
+    const messageSubscription = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` }, async (payload) => {
+      const newMessagePayload = payload.new as Message;
+      const { data: profileData, error } = await supabase.from('profiles').select('nickname').eq('id', newMessagePayload.user_id).single();
+      if (error) {
+        console.error("Error fetching profile for new message:", error);
+      } else {
+        newMessagePayload.profiles = profileData;
+      }
+      setMessages((prev) => [...prev, newMessagePayload]);
+    });
 
-    const messageSubscription = supabase
-      .channel(`chatroom:${id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` },
-        handleNewOrUpdatedMessage
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(messageSubscription);
-    };
+    channel.subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSoftDelete = async (messageId: number) => {
-    const { error } = await supabase.rpc('soft_delete_message', { p_message_id: messageId });
-    if (error) {
-      console.error('Error deleting message:', error);
-      alert('메시지 삭제에 실패했습니다.');
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setNewMessage(value);
+
+    if (value.startsWith('/')) {
+      const search = value.substring(1).toLowerCase();
+      const filteredSuggestions = botcall.keywords.filter(keyword => keyword.substring(1).toLowerCase().startsWith(search));
+      setSuggestions(filteredSuggestions);
+      setShowSuggestions(filteredSuggestions.length > 0);
+    } else {
+      setShowSuggestions(false);
     }
   };
 
-  const handleToggleLike = async (message: Message) => {
-    if (!currentUser) return;
-
-    // Optimistic UI update
-    setMessages(messages.map(m => {
-      if (m.id === message.id) {
-        return {
-          ...m,
-          like_count: m.user_has_liked ? (m.like_count ?? 1) - 1 : (m.like_count ?? 0) + 1,
-          user_has_liked: !m.user_has_liked,
-        };
-      }
-      return m;
-    }));
-
-    const { error } = await supabase.rpc('toggle_like_message', { p_message_id: message.id });
-    if (error) {
-      console.error('Error toggling like:', error);
-      // Revert optimistic update on error
-      setMessages(messages.map(m => {
-        if (m.id === message.id) {
-          return { ...m }; // Revert to original state before the click
-        }
-        return m;
-      }));
-      alert('좋아요 처리에 실패했습니다.');
-    }
+  const handleSuggestionClick = (suggestion: string) => {
+    setNewMessage(`${suggestion} `);
+    setShowSuggestions(false);
+    inputRef.current?.focus();
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -151,75 +106,28 @@ const ChatroomPage: React.FC = () => {
     const trimmedMessage = newMessage.trim();
     if (trimmedMessage === '' || !currentUser || !id) return;
 
-    const keywords = botcall.keywords;
-    let isBotCall = false;
-    let question = '';
-
-    for (const keyword of keywords) {
-      if (trimmedMessage.startsWith(keyword)) {
-        question = trimmedMessage.substring(keyword.length).trim();
-        isBotCall = true;
-        break;
-      }
-    }
-
-    if (isBotCall) {
-      setNewMessage('');
-      if (question) {
-        try {
-          const response = await fetch('/api/curator/qa-handler', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              question: question,
-              chatroomId: id,
-            }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'AI 응답 생성 중 서버에서 오류가 발생했습니다.');
-          }
-
-        } catch (error: any) {
-          const errorMessage: Message = {
-            id: Date.now(),
-            user_id: '4bb3e1a3-099b-4b6c-bf3a-8b60c51baa79', // AI Curator's user ID
-            content: `오류: AI 큐레이터 호출에 실패했습니다. (${error.message})`,
-            created_at: new Date().toISOString(),
-            chatroom_id: id as string,
-            profiles: { nickname: 'AI 큐레이터' } // Manually set profile for display
-          };
-          setMessages((prevMessages) => [...prevMessages, errorMessage]);
-        }
-      }
+    const { error } = await supabase.from('messages').insert([{ chatroom_id: id, user_id: currentUser.id, content: trimmedMessage }]);
+    
+    if (error) {
+      console.error('Error sending message:', error.message);
       return;
     }
 
-    const { error } = await supabase.from('messages').insert([
-      { chatroom_id: id, user_id: currentUser.id, content: trimmedMessage },
-    ]);
+    setNewMessage('');
+    setShowSuggestions(false);
 
-    if (error) {
-      console.error('Error sending message:', error.message);
-    }
-    else {
-      setNewMessage('');
-    }
-  };
-
-  const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null);
-
-  const handleCopyMessage = async (messageContent: string, messageId: number) => {
-    try {
-      await navigator.clipboard.writeText(messageContent);
-      setCopiedMessageId(messageId);
-      setTimeout(() => setCopiedMessageId(null), 2000); // Reset after 2 seconds
-    } catch (err) {
-      console.error('Failed to copy message: ', err);
-      alert('메시지 복사에 실패했습니다.');
+    for (const keyword of botcall.keywords) {
+      if (trimmedMessage.startsWith(keyword)) {
+        const question = trimmedMessage.substring(keyword.length).trim();
+        if (question) {
+          fetch('/api/curator/qa-handler', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question, chatroomId: id }),
+          }).catch(err => console.error('QA handler call failed:', err));
+        }
+        break;
+      }
     }
   };
 
@@ -229,63 +137,47 @@ const ChatroomPage: React.FC = () => {
 
   return (
     <div className="flex flex-col h-[calc(100vh-9rem)]">
-      {/* Message display area */}
       <div className="flex-grow overflow-y-auto p-2 md:p-4">
         <div className="space-y-4">
           {messages.map((message) => {
             const isCurrentUser = message.user_id === currentUser?.id;
             const isAiCurator = message.user_id === '4bb3e1a3-099b-4b6c-bf3a-8b60c51baa79';
+            const isCommand = !isAiCurator && botcall.keywords.some(keyword => message.content.startsWith(keyword));
 
             return (
-              <div
-                key={message.id}
-                className={`flex ${isCurrentUser || isAiCurator ? 'justify-end' : 'justify-start'}`}
-              >
-                <div className="flex items-end max-w-xs md:max-w-md">
-                  {!isCurrentUser && !isAiCurator && (
-                     <div className="mr-2 text-xs text-gray-500 text-center">
-                        <div className="w-8 h-8 rounded-full bg-gray-300 mb-1"></div>
-                        {message.profiles?.nickname || '...'}
-                     </div>
-                  )}
-                  <div
-                    className={`px-4 py-2 rounded-lg ${
-                      isCurrentUser
-                        ? 'bg-blue-500 text-white rounded-br-none'
-                        : isAiCurator
-                        ? 'bg-green-500 text-white rounded-bl-none' // Different color for AI
-                        : 'bg-gray-200 text-gray-800 rounded-bl-none'
-                    }`}
-                  >
-                    {isAiCurator && <strong className='block text-xs mb-1'>AI 큐레이터</strong>}
-                    {message.is_deleted ? '삭제된 메시지입니다.' : message.content}
-                    <div className="flex justify-end items-center mt-1 space-x-2 text-xs">
-                      {!message.is_deleted && (
-                        <>
-                          <button
-                            onClick={() => handleToggleLike(message)}
-                            className={`flex items-center space-x-1 ${message.user_has_liked ? 'text-red-400' : 'text-gray-300'} hover:text-white focus:outline-none`}
-                          >
-                            <span>♥</span>
-                            <span>{message.like_count ?? 0}</span>
-                          </button>
-                          <button
-                            onClick={() => handleCopyMessage(message.content, message.id)}
-                            className="text-gray-300 hover:text-white focus:outline-none"
-                          >
-                            {copiedMessageId === message.id ? '복사됨!' : '복사'}
-                          </button>
-                        </>
-                      )}
-                      {isCurrentUser && !message.is_deleted && (
-                        <button
-                          onClick={() => handleSoftDelete(message.id)}
-                          className="text-gray-300 hover:text-white focus:outline-none"
-                        >
-                          삭제
-                        </button>
-                      )}
-                    </div>
+              <div key={message.id} className={`flex w-full items-end ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
+                <div className={`flex items-end max-w-xs md:max-w-md ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                  {/* Avatar Area */}
+                  <div className="mx-2 flex shrink-0 flex-col items-center self-center text-xs text-gray-500">
+                    {!isCurrentUser && (
+                      <>
+                        {isAiCurator ? (
+                          <div className="relative h-8 w-8 rounded-full bg-green-200">
+                            <svg className="h-full w-full p-1.5 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                          </div>
+                        ) : (
+                          <div className="h-8 w-8 rounded-full bg-gray-300"></div>
+                        )}
+                        <div className="mt-1 w-12 truncate">{message.profiles?.nickname || (isAiCurator ? 'AI' : '...')}</div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Bubble Area */}
+                  <div>
+                    {isCommand ? (
+                      <div className="bg-gray-700 text-gray-100 px-4 py-3 rounded-lg shadow-md flex items-center font-mono">
+                        <svg className="w-5 h-5 mr-3 text-yellow-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M9 3v4M7 5h4m5 3v4m-2-2h4m-7 7v4m-2-2h4" />
+                        </svg>
+                        <span>{message.content}</span>
+                      </div>
+                    ) : (
+                      <div className={`px-4 py-2 rounded-lg ${isCurrentUser ? 'bg-blue-500 text-white rounded-br-none' : isAiCurator ? 'bg-green-500 text-white rounded-bl-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'}`}>
+                        {isAiCurator && <strong className='block text-xs mb-1'>AI 큐레이터</strong>}
+                        {message.content}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -295,21 +187,27 @@ const ChatroomPage: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Message input form */}
-      <div className="p-2 md:p-4 bg-white border-t">
+      <div className="p-2 md:p-4 bg-white border-t relative">
+        {showSuggestions && suggestions.length > 0 && (
+          <div className="absolute bottom-full left-0 right-0 mb-1 p-2 bg-white border rounded-lg shadow-lg">
+            <p className="text-xs text-gray-500 mb-1 px-2">명령어 제안</p>
+            {suggestions.map(suggestion => (
+              <div key={suggestion} onClick={() => handleSuggestionClick(suggestion)} className="p-2 hover:bg-gray-100 rounded cursor-pointer font-mono">
+                {suggestion}
+              </div>
+            ))}
+          </div>
+        )}
         <form onSubmit={handleSendMessage} className="flex items-center">
           <input
+            ref={inputRef}
             type="text"
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
+            onChange={handleInputChange}
             className="flex-grow border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder={`메시지를 입력하세요... (${botcall.keywords.join(', ')}로 질문 가능)`}
           />
-          <button
-            type="submit"
-            className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300"
-            disabled={!newMessage.trim()}
-          >
+          <button type="submit" className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300" disabled={!newMessage.trim()}>
             전송
           </button>
         </form>
