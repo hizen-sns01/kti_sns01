@@ -145,17 +145,26 @@ const ChatroomPage: React.FC = () => {
             const isCommand = !isAiCurator && botcall.keywords.some(keyword => message.content.startsWith(keyword));
 
             return (
-              <div key={message.id} className={`flex ${isCurrentUser || isAiCurator ? 'justify-end' : 'justify-start'}`}>
+              <div
+                key={message.id}
+                className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
                 <div className="flex items-end max-w-xs md:max-w-md">
-                  {!isCurrentUser && !isAiCurator && (
-                     <div className="mr-2 text-xs text-gray-500 text-center self-center">
-                        <div className="w-8 h-8 rounded-full bg-gray-300 mb-1"></div>
-                        {message.profiles?.nickname || '...'}
+                  {!isCurrentUser && (
+                     <div className="mr-2 text-xs text-gray-500 text-center self-center w-12 shrink-0">
+                        {isAiCurator ? (
+                          <div className="w-8 h-8 mx-auto rounded-full bg-green-500 flex items-center justify-center text-white font-bold mb-1 text-sm">AI</div>
+                        ) : (
+                          <div className="w-8 h-8 mx-auto rounded-full bg-gray-300 mb-1"></div>
+                        )}
+                        {message.profiles?.nickname || (isAiCurator ? '' : '...')}
                      </div>
                   )}
+                  
                   {isCommand ? (
                     <div className="bg-gray-700 text-gray-100 px-4 py-3 rounded-lg shadow-md flex items-center font-mono">
-                      <svg className="w-5 h-5 mr-3 text-blue-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+                      <svg className="w-5 h-5 mr-3 text-yellow-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M9 3v4M7 5h4m5 3v4m-2-2h4m-7 7v4m-2-2h4" />
+                      </svg>
                       <span>{message.content}</span>
                     </div>
                   ) : (
@@ -167,7 +176,7 @@ const ChatroomPage: React.FC = () => {
                 </div>
               </div>
             );
-          })}
+          }}
         </div>
         <div ref={messagesEndRef} />
       </div>
