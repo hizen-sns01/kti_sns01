@@ -19,6 +19,7 @@ const MessageCommentsModal: React.FC<MessageCommentsModalProps> = ({ messageId, 
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchComments = async () => {
@@ -51,6 +52,8 @@ const MessageCommentsModal: React.FC<MessageCommentsModalProps> = ({ messageId, 
     const trimmedComment = newComment.trim();
     if (trimmedComment === '') return;
 
+    setSubmitting(true);
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -65,11 +68,14 @@ const MessageCommentsModal: React.FC<MessageCommentsModalProps> = ({ messageId, 
 
     if (error) {
       console.error('Error adding comment:', error.message);
+      setSubmitting(false);
       return;
     }
 
     setComments([...comments, data]);
     setNewComment('');
+    setSubmitting(false);
+    onClose();
   };
 
   return (
@@ -106,8 +112,8 @@ const MessageCommentsModal: React.FC<MessageCommentsModalProps> = ({ messageId, 
             className="flex-grow border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="댓글을 입력하세요..."
           />
-          <button type="submit" className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300" disabled={!newComment.trim()}>
-            등록
+          <button type="submit" className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300" disabled={!newComment.trim() || submitting}>
+            {submitting ? '등록 중...' : '등록'}
           </button>
         </form>
       </div>

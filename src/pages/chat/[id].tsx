@@ -111,6 +111,44 @@ const ChatroomPage: React.FC = () => {
       } else {
         newMessagePayload.profiles = profileData;
       }
+
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { data: likeData } = await supabase
+        .from('message_likes')
+        .select('*')
+        .eq('message_id', newMessagePayload.id)
+        .eq('user_id', user?.id)
+        .single();
+
+      const { data: dislikeData } = await supabase
+        .from('message_dislikes')
+        .select('*')
+        .eq('message_id', newMessagePayload.id)
+        .eq('user_id', user?.id)
+        .single();
+
+      const { count: likeCount } = await supabase
+        .from('message_likes')
+        .select('count', { count: 'exact' })
+        .eq('message_id', newMessagePayload.id);
+
+      const { count: dislikeCount } = await supabase
+        .from('message_dislikes')
+        .select('count', { count: 'exact' })
+        .eq('message_id', newMessagePayload.id);
+
+      const { count: commentCount } = await supabase
+        .from('message_comments')
+        .select('count', { count: 'exact' })
+        .eq('message_id', newMessagePayload.id);
+
+      newMessagePayload.like_count = likeCount || 0;
+      newMessagePayload.dislike_count = dislikeCount || 0;
+      newMessagePayload.comment_count = commentCount || 0;
+      newMessagePayload.user_has_liked = !!likeData;
+      newMessagePayload.user_has_disliked = !!dislikeData;
+
       setMessages((prev) => [...prev, newMessagePayload]);
     });
 
