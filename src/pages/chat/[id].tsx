@@ -10,6 +10,9 @@ interface Message {
   content: string;
   created_at: string;
   chatroom_id: string;
+  is_deleted?: boolean;
+  like_count?: number;
+  user_has_liked?: boolean;
   profiles: {
     nickname: string;
   } | null;
@@ -33,20 +36,28 @@ const ChatroomPage: React.FC = () => {
   }, []);
 
   const fetchMessages = async () => {
-    if (!id) return;
+    if (!id || !currentUser) return;
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('messages')
         .select(`
           *,
-          profiles ( nickname )
+          profiles ( nickname ),
+          user_has_liked:message_likes ( user_id )
         `)
         .eq('chatroom_id', id)
+        .eq('message_likes.user_id', currentUser.id)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setMessages(data || []);
+      
+      const processedMessages = data.map(msg => ({
+        ...msg,
+        user_has_liked: msg.user_has_liked.length > 0,
+      }));
+
+      setMessages(processedMessages || []);
 
       await supabase.rpc('update_last_read_at', { chatroom_id_param: id });
 
@@ -58,33 +69,34 @@ const ChatroomPage: React.FC = () => {
   };
 
   useEffect(() => {
+    if (id && currentUser) {
+      fetchMessages();
+    }
+  }, [id, currentUser]);
+
+  useEffect(() => {
     if (!id) return;
 
-    fetchMessages();
+    const handleNewOrUpdatedMessage = (payload: any) => {
+      const updatedMessage = payload.new as Message;
+      setMessages(prevMessages => {
+        const messageExists = prevMessages.find(m => m.id === updatedMessage.id);
+        if (messageExists) {
+          // It's an update
+          return prevMessages.map(m => m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m);
+        } else {
+          // It's an insert
+          return [...prevMessages, updatedMessage];
+        }
+      });
+    };
 
     const messageSubscription = supabase
       .channel(`chatroom:${id}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` },
-        async (payload) => {
-          const newMessage = payload.new as Message;
-
-          const { data: profileData, error } = await supabase
-            .from('profiles')
-            .select('nickname')
-            .eq('id', newMessage.user_id)
-            .limit(1)
-            .single();
-          
-          if (error) {
-            console.error("Error fetching profile for new message:", error);
-          } else {
-            newMessage.profiles = profileData;
-          }
-          
-          setMessages((prevMessages) => [...prevMessages, newMessage]);
-        }
+        { event: '*', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` },
+        handleNewOrUpdatedMessage
       )
       .subscribe();
 
@@ -96,6 +108,43 @@ const ChatroomPage: React.FC = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const handleSoftDelete = async (messageId: number) => {
+    const { error } = await supabase.rpc('soft_delete_message', { p_message_id: messageId });
+    if (error) {
+      console.error('Error deleting message:', error);
+      alert('메시지 삭제에 실패했습니다.');
+    }
+  };
+
+  const handleToggleLike = async (message: Message) => {
+    if (!currentUser) return;
+
+    // Optimistic UI update
+    setMessages(messages.map(m => {
+      if (m.id === message.id) {
+        return {
+          ...m,
+          like_count: m.user_has_liked ? (m.like_count ?? 1) - 1 : (m.like_count ?? 0) + 1,
+          user_has_liked: !m.user_has_liked,
+        };
+      }
+      return m;
+    }));
+
+    const { error } = await supabase.rpc('toggle_like_message', { p_message_id: message.id });
+    if (error) {
+      console.error('Error toggling like:', error);
+      // Revert optimistic update on error
+      setMessages(messages.map(m => {
+        if (m.id === message.id) {
+          return { ...m }; // Revert to original state before the click
+        }
+        return m;
+      }));
+      alert('좋아요 처리에 실패했습니다.');
+    }
+  };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,8 +204,22 @@ const ChatroomPage: React.FC = () => {
 
     if (error) {
       console.error('Error sending message:', error.message);
-    } else {
+    }
+    else {
       setNewMessage('');
+    }
+  };
+
+  const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null);
+
+  const handleCopyMessage = async (messageContent: string, messageId: number) => {
+    try {
+      await navigator.clipboard.writeText(messageContent);
+      setCopiedMessageId(messageId);
+      setTimeout(() => setCopiedMessageId(null), 2000); // Reset after 2 seconds
+    } catch (err) {
+      console.error('Failed to copy message: ', err);
+      alert('메시지 복사에 실패했습니다.');
     }
   };
 
@@ -195,7 +258,34 @@ const ChatroomPage: React.FC = () => {
                     }`}
                   >
                     {isAiCurator && <strong className='block text-xs mb-1'>AI 큐레이터</strong>}
-                    {message.content}
+                    {message.is_deleted ? '삭제된 메시지입니다.' : message.content}
+                    <div className="flex justify-end items-center mt-1 space-x-2 text-xs">
+                      {!message.is_deleted && (
+                        <>
+                          <button
+                            onClick={() => handleToggleLike(message)}
+                            className={`flex items-center space-x-1 ${message.user_has_liked ? 'text-red-400' : 'text-gray-300'} hover:text-white focus:outline-none`}
+                          >
+                            <span>♥</span>
+                            <span>{message.like_count ?? 0}</span>
+                          </button>
+                          <button
+                            onClick={() => handleCopyMessage(message.content, message.id)}
+                            className="text-gray-300 hover:text-white focus:outline-none"
+                          >
+                            {copiedMessageId === message.id ? '복사됨!' : '복사'}
+                          </button>
+                        </>
+                      )}
+                      {isCurrentUser && !message.is_deleted && (
+                        <button
+                          onClick={() => handleSoftDelete(message.id)}
+                          className="text-gray-300 hover:text-white focus:outline-none"
+                        >
+                          삭제
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
