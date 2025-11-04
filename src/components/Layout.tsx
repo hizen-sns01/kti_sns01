@@ -56,7 +56,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           {navItems.map((item) => (
             <Link key={item.label} href={item.href}>
               {/* Adjust padding and font size for mobile */}
-              <div className={`py-3 px-2 block text-center text-base md:text-lg font-medium cursor-pointer ${router.pathname.startsWith(item.href) ? 'border-b-4 border-blue-500 text-blue-500' : 'text-gray-500 hover:text-blue-500'}`}>
+              <div className={`py-3 px-2 block text-center text-base md:text-lg font-medium cursor-pointer ${ (item.href === '/' ? router.pathname === item.href : router.pathname.startsWith(item.href)) ? 'border-b-4 border-blue-500 text-blue-500' : 'text-gray-500 hover:text-blue-500'}`}>
                 {item.label}
               </div>
             </Link>

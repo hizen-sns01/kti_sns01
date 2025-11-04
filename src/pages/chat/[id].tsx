@@ -22,6 +22,8 @@ interface Message {
   user_has_disliked: boolean;
 }
 
+const messagesCache: { [key: string]: Message[] } = {};
+
 const ChatroomPage: React.FC = () => {
   const router = useRouter();
   const { id } = router.query;
@@ -48,6 +50,13 @@ const ChatroomPage: React.FC = () => {
 
   const fetchMessages = async () => {
     if (!id) return;
+
+    if (messagesCache[id as string]) {
+      setMessages(messagesCache[id as string]);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
@@ -89,6 +98,7 @@ const ChatroomPage: React.FC = () => {
         };
       }));
 
+      messagesCache[id as string] = messagesWithLikes || [];
       setMessages(messagesWithLikes || []);
       await supabase.rpc('update_last_read_at', { chatroom_id_param: id });
     } catch (error: any) {
