@@ -55,15 +55,24 @@ const ChatroomPage: React.FC = () => {
 
     const processMessages = async (data: any[]) => {
       return Promise.all(data.map(async (item) => {
-        const { data: likeData } = await supabase.from('message_likes').select('*').eq('message_id', item.id).eq('user_id', user?.id).single();
-        const { data: dislikeData } = await supabase.from('message_dislikes').select('*').eq('message_id', item.id).eq('user_id', user?.id).single();
+        // Get user_has_liked and like_count
+        const { data: likeData, count: likeCount } = await supabase.from('message_likes').select('*', { count: 'exact' }).eq('message_id', item.id);
+        const user_has_liked = likeData ? likeData.some(l => l.user_id === user?.id) : false;
+
+        // Get user_has_disliked and dislike_count
+        const { data: dislikeData, count: dislikeCount } = await supabase.from('message_dislikes').select('*', { count: 'exact' }).eq('message_id', item.id);
+        const user_has_disliked = dislikeData ? dislikeData.some(d => d.user_id === user?.id) : false;
+
+        // Get comment_count
+        const { count: commentCount } = await supabase.from('message_comments').select('id', { count: 'exact' }).eq('message_id', item.id);
+
         return {
           ...item,
-          like_count: item.message_likes[0]?.count || 0,
-          dislike_count: item.message_dislikes[0]?.count || 0,
-          comment_count: item.message_comments[0]?.count || 0,
-          user_has_liked: !!likeData,
-          user_has_disliked: !!dislikeData,
+          like_count: likeCount || 0,
+          dislike_count: dislikeCount || 0,
+          comment_count: commentCount || 0,
+          user_has_liked: user_has_liked,
+          user_has_disliked: user_has_disliked,
         };
       }));
     };
@@ -87,10 +96,7 @@ const ChatroomPage: React.FC = () => {
       let query = supabase
         .from('messages')
         .select(`*,
-          profiles(nickname),
-          message_likes(count),
-          message_dislikes(count),
-          message_comments(count)
+          profiles(nickname)
         `)
         .eq('chatroom_id', id)
         .order('created_at', { ascending: true });
