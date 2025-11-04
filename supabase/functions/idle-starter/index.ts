@@ -68,22 +68,32 @@ Deno.serve(async (req) => {
     );
 
     const aiUserId = '4bb3e1a3-099b-4b6c-bf3a-8b60c51baa79';
-    const IDLE_THRESHOLD_MINUTES = 60; // Set to 1 hour
+    const DEFAULT_IDLE_THRESHOLD_MINUTES = 240; // 4 hours
 
-    // 1. Find all chatrooms that have been idle for more than the threshold
-    const threshold = new Date();
-    threshold.setMinutes(threshold.getMinutes() - IDLE_THRESHOLD_MINUTES);
-
-    const { data: idleChatrooms, error: chatroomsError } = await supabaseClient
+    // 1. Fetch ALL chatrooms to check their individual thresholds
+    const { data: allChatrooms, error: chatroomsError } = await supabaseClient
       .from('chatrooms')
-      .select('id, interest')
-      .lt('last_message_at', threshold.toISOString());
+      .select('id, interest, last_message_at, idle_threshold_minutes');
 
     if (chatroomsError) {
-      throw new Error(`Failed to fetch idle chatrooms: ${chatroomsError.message}`);
+      throw new Error(`Failed to fetch chatrooms: ${chatroomsError.message}`);
     }
 
-    if (!idleChatrooms || idleChatrooms.length === 0) {
+    if (!allChatrooms || allChatrooms.length === 0) {
+      return new Response(JSON.stringify({ message: 'No chatrooms found.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    }
+
+    const now = new Date();
+    const idleRoomsToProcess = allChatrooms.filter(room => {
+      const thresholdMinutes = room.idle_threshold_minutes || DEFAULT_IDLE_THRESHOLD_MINUTES;
+      const thresholdTime = new Date(now.getTime() - thresholdMinutes * 60 * 1000);
+      return new Date(room.last_message_at) < thresholdTime;
+    });
+
+    if (idleRoomsToProcess.length === 0) {
       console.log('No idle chatrooms to process.');
       return new Response(JSON.stringify({ message: 'No idle chatrooms to process.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -91,12 +101,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`Found ${idleChatrooms.length} idle chatrooms.`);
+    console.log(`Found ${idleRoomsToProcess.length} idle chatrooms.`);
 
     // 2. For each idle chatroom, generate a topic and insert a message
-    const promises = idleChatrooms.map(async (room) => {
+    const promises = idleRoomsToProcess.map(async (room) => {
       const topicContext = room.interest || 'general discussion';
-      
       const newTopic = await getIdleTopic(topicContext);
 
       const { error: insertError } = await supabaseClient.from('messages').insert({
@@ -113,12 +122,12 @@ Deno.serve(async (req) => {
 
     await Promise.all(promises);
 
-    return new Response(JSON.stringify({ message: `Processed ${idleChatrooms.length} idle chatrooms.` }), {
+    return new Response(JSON.stringify({ message: `Processed ${idleRoomsToProcess.length} idle chatrooms.` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
 
-  } catch (error: any) { // Changed to catch (error: any)
+  } catch (error: any) {
     console.error('Error in idle-starter handler:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
