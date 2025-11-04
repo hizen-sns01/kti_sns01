@@ -49,6 +49,7 @@ const ChatroomPage: React.FC = () => {
   const fetchMessages = async () => {
     if (!id) return;
 
+    console.log('fetchMessages: Starting fetch...');
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -72,11 +73,15 @@ const ChatroomPage: React.FC = () => {
       let lastMessageTimestamp: string | null = null;
 
       if (cachedMessagesJson) {
+        console.log('fetchMessages: Found cached messages.');
         const cachedMessages = JSON.parse(cachedMessagesJson);
         if (cachedMessages.length > 0) {
           setMessages(cachedMessages);
           lastMessageTimestamp = cachedMessages[cachedMessages.length - 1].created_at;
+          console.log(`fetchMessages: Loading from cache. Last message timestamp: ${lastMessageTimestamp}`);
         }
+      } else {
+        console.log('fetchMessages: No cached messages found.');
       }
 
       let query = supabase
@@ -91,7 +96,10 @@ const ChatroomPage: React.FC = () => {
         .order('created_at', { ascending: true });
 
       if (lastMessageTimestamp) {
+        console.log('fetchMessages: Fetching messages newer than cache.');
         query = query.gt('created_at', lastMessageTimestamp);
+      } else {
+        console.log('fetchMessages: Fetching all messages.');
       }
 
       const { data, error } = await query;
@@ -99,12 +107,17 @@ const ChatroomPage: React.FC = () => {
       if (error) throw error;
 
       if (data && data.length > 0) {
+        console.log(`fetchMessages: Fetched ${data.length} new messages from Supabase.`);
         const newMessages = await processMessages(data);
         setMessages(prevMessages => {
           const messageMap = new Map(prevMessages.map(m => [m.id, m]));
           newMessages.forEach(m => messageMap.set(m.id, m));
-          return Array.from(messageMap.values()).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+          const sortedMessages = Array.from(messageMap.values()).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+          console.log(`fetchMessages: Merged messages. Total: ${sortedMessages.length}`);
+          return sortedMessages;
         });
+      } else {
+        console.log('fetchMessages: No new messages from Supabase.');
       }
 
       if (!lastMessageTimestamp) {
@@ -113,10 +126,11 @@ const ChatroomPage: React.FC = () => {
 
     } catch (error: any) {
       console.error('Error fetching messages:', error.message);
-      // If there's an error, it might be due to corrupted cache. Clear it and try again.
       localStorage.removeItem(`messages_${id}`);
+      console.log('fetchMessages: Cleared corrupted cache.');
     } finally {
       setLoading(false);
+      console.log('fetchMessages: Fetch complete.');
     }
   };
 
@@ -138,7 +152,8 @@ const ChatroomPage: React.FC = () => {
   }, [messages]);
 
   useEffect(() => {
-    if (id) {
+    if (id && messages.length > 0) {
+      console.log(`Saving ${messages.length} messages to localStorage for id: ${id}`);
       localStorage.setItem(`messages_${id}`, JSON.stringify(messages));
     }
   }, [messages, id]);
