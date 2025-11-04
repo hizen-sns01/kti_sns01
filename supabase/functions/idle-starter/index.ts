@@ -68,7 +68,6 @@ Deno.serve(async (req) => {
     );
 
     const aiUserId = '4bb3e1a3-099b-4b6c-bf3a-8b60c51baa79';
-    const DEFAULT_IDLE_THRESHOLD_MINUTES = 240; // 4 hours
 
     // 1. Fetch ALL chatrooms to check their individual thresholds
     const { data: allChatrooms, error: chatroomsError } = await supabaseClient
@@ -87,14 +86,21 @@ Deno.serve(async (req) => {
     }
 
     const now = new Date();
+    // Filter for rooms that have a specific threshold set AND are idle
     const idleRoomsToProcess = allChatrooms.filter(room => {
-      const thresholdMinutes = room.idle_threshold_minutes || DEFAULT_IDLE_THRESHOLD_MINUTES;
+      const thresholdMinutes = room.idle_threshold_minutes;
+      
+      // If no threshold is set for this room, or it's not a positive number, ignore it.
+      if (!thresholdMinutes || typeof thresholdMinutes !== 'number' || thresholdMinutes <= 0) {
+        return false;
+      }
+
       const thresholdTime = new Date(now.getTime() - thresholdMinutes * 60 * 1000);
       return new Date(room.last_message_at) < thresholdTime;
     });
 
     if (idleRoomsToProcess.length === 0) {
-      console.log('No idle chatrooms to process.');
+      console.log('No idle chatrooms to process based on their individual thresholds.');
       return new Response(JSON.stringify({ message: 'No idle chatrooms to process.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
