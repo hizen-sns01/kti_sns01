@@ -79,7 +79,7 @@ async function summarizeAndPrompt(articleTitle: string, articleUrl: string, cont
   const maxTextLength = 10000; // Adjust as needed
   const truncatedText = articleText.substring(0, maxTextLength);
 
-  const prompt = `Based on the article content below, write a short, engaging summary (2-3 sentences) and then ask a thought-provoking question to start a discussion. The discussion is for a chatroom about "${context}".\n\n---\n\nARTICLE CONTENT:\n${truncatedText}`;
+  const prompt = `아래 기사 내용을 바탕으로, 짧고 흥미로운 요약(2-3문장)을 한국어로 작성하고, 토론을 시작할 수 있는 생각을 자극하는 질문을 한국어로 제시해 주세요. 이 토론은 "${context}"에 대한 채팅방을 위한 것입니다.\n\n---\n\n기사 내용:\n${truncatedText}`;
 
   const requestBody = {
     contents: [{ parts: [{ text: prompt }] }],
