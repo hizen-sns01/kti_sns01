@@ -52,7 +52,7 @@ const ChatroomPage: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const shouldScrollToBottomRef = useRef(true);
+  const shouldScrollToBottomRef = useRef(true); // Controls auto-scroll for new messages
 
   const MESSAGES_PER_PAGE = 30;
 
@@ -94,7 +94,6 @@ const ChatroomPage: React.FC = () => {
   const fetchInitialMessages = async () => {
     if (!id) return;
     setLoading(true);
-    shouldScrollToBottomRef.current = true;
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -113,9 +112,10 @@ const ChatroomPage: React.FC = () => {
       if (data) {
         const processed = await processMessages(data);
         setMessages(processed.reverse());
-        if (data.length < MESSAGES_PER_PAGE) {
-          setHasMore(false);
-        }
+        // Always scroll to bottom on initial load
+        requestAnimationFrame(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        });
       }
       await supabase.rpc('update_last_read_at', { chatroom_id_param: id });
     } catch (error: any) {
@@ -128,7 +128,7 @@ const ChatroomPage: React.FC = () => {
   const fetchMoreMessages = async () => {
     if (!id || !hasMore || loadingMore) return;
     setLoadingMore(true);
-    shouldScrollToBottomRef.current = false;
+    shouldScrollToBottomRef.current = false; // Don't auto-scroll when loading more history
 
     const { data, error } = await supabase
       .from('messages')
@@ -195,9 +195,16 @@ const ChatroomPage: React.FC = () => {
 
       if (newMessage) {
         const processedPayload = await processMessages([newMessage]);
-        shouldScrollToBottomRef.current = isAtBottom;
-        setMessages(prev => [...prev, ...processedPayload]);
-        if (!isAtBottom) {
+        // Only auto-scroll if user is at the bottom or just sent a message
+        if (isAtBottom || shouldScrollToBottomRef.current) {
+            setMessages(prev => [...prev, ...processedPayload]);
+            requestAnimationFrame(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            });
+            shouldScrollToBottomRef.current = true; // Reset for next message
+            setShowNewMessageButton(false);
+        } else {
+            setMessages(prev => [...prev, ...processedPayload]);
             setShowNewMessageButton(true);
         }
       }
@@ -214,8 +221,12 @@ const ChatroomPage: React.FC = () => {
         if (scrollContainer.scrollTop === 0 && hasMore && !loadingMore) {
             fetchMoreMessages();
         }
+        // If user scrolls to the bottom, hide the new message button
         if (scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 1) {
             setShowNewMessageButton(false);
+            shouldScrollToBottomRef.current = true; // User is at bottom, enable auto-scroll
+        } else {
+            shouldScrollToBottomRef.current = false; // User scrolled up, disable auto-scroll
         }
       }
     };
@@ -225,11 +236,13 @@ const ChatroomPage: React.FC = () => {
     return () => scrollContainer?.removeEventListener('scroll', handleScroll);
   }, [hasMore, loadingMore, page]);
 
+  // Removed the messages dependency from this useEffect to prevent re-scrolling on every message update
+  // Initial scroll and sent message scroll are handled directly.
+  // Real-time new message scroll is handled within the subscription callback.
   useEffect(() => {
-    if (shouldScrollToBottomRef.current) {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
+    // This useEffect is now primarily for ensuring initial scroll if needed, or after sending a message
+    // The logic for shouldScrollToBottomRef is now handled more granularly.
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -256,6 +269,7 @@ const ChatroomPage: React.FC = () => {
     const trimmedMessage = newMessage.trim();
     if (trimmedMessage === '' || !currentUser || !id) return;
 
+    // Always scroll to bottom when sending a new message
     shouldScrollToBottomRef.current = true;
     const { error } = await supabase.from('messages').insert([{ chatroom_id: id, user_id: currentUser.id, content: trimmedMessage }]);
     
@@ -266,20 +280,9 @@ const ChatroomPage: React.FC = () => {
 
     setNewMessage('');
     setShowSuggestions(false);
-
-    for (const keyword of botcall.keywords) {
-      if (trimmedMessage.startsWith(keyword)) {
-        const question = trimmedMessage.substring(keyword.length).trim();
-        if (question) {
-          fetch('/api/curator/qa-handler', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question, chatroomId: id }),
-          }).catch(err => console.error('QA handler call failed:', err));
-        }
-        break;
-      }
-    }
+    requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    });
   };
 
   const handleLike = async (messageId: number) => {
@@ -348,6 +351,7 @@ const ChatroomPage: React.FC = () => {
 
   const handleCommentClick = (messageId: number) => {
     setSelectedMessageId(messageId);
+    setContextMenu({ visible: false, x: 0, y: 0, messageId: null }); // Close context menu
     setShowCommentsModal(true);
   };
 
@@ -361,12 +365,14 @@ const ChatroomPage: React.FC = () => {
     navigator.clipboard.writeText(url)
       .then(() => alert('메시지 링크가 클립보드에 복사되었습니다.'))
       .catch(err => console.error('클립보드 복사 실패:', err));
+    setContextMenu({ visible: false, x: 0, y: 0, messageId: null }); // Close context menu
   };
 
   const handleCopy = (content: string) => {
     navigator.clipboard.writeText(content)
       .then(() => alert('클립보드에 복사되었습니다.'))
       .catch(err => console.error('클립보드 복사 실패:', err));
+    setContextMenu({ visible: false, x: 0, y: 0, messageId: null }); // Close context menu
   };
 
   const handleContextMenu = (e: React.MouseEvent, messageId: number) => {
@@ -377,6 +383,7 @@ const ChatroomPage: React.FC = () => {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     setShowNewMessageButton(false);
+    shouldScrollToBottomRef.current = true; // User explicitly scrolled to bottom, enable auto-scroll
   };
 
   if (loading) {
@@ -387,11 +394,11 @@ const ChatroomPage: React.FC = () => {
     <div className="flex flex-col h-[calc(100vh-9rem)]">
         {contextMenu.visible && (
             <div style={{ top: contextMenu.y, left: contextMenu.x }} className="absolute z-50 bg-white border rounded-lg shadow-lg p-2 flex flex-col space-y-1">
-                <button onClick={() => { handleLike(contextMenu.messageId!); setContextMenu({ visible: false, x: 0, y: 0, messageId: null }); }} className="p-2 text-left hover:bg-gray-100 rounded">👍 좋아요</button>
-                <button onClick={() => { handleDislike(contextMenu.messageId!); setContextMenu({ visible: false, x: 0, y: 0, messageId: null }); }} className="p-2 text-left hover:bg-gray-100 rounded">👎 싫어요</button>
-                <button onClick={() => { handleCommentClick(contextMenu.messageId!); setContextMenu({ visible: false, x: 0, y: 0, messageId: null }); }} className="p-2 text-left hover:bg-gray-100 rounded">💬 댓글</button>
-                <button onClick={() => { handleShare(contextMenu.messageId!); setContextMenu({ visible: false, x: 0, y: 0, messageId: null }); }} className="p-2 text-left hover:bg-gray-100 rounded">🔗 공유</button>
-                <button onClick={() => { handleCopy(messages.find(m => m.id === contextMenu.messageId!)?.content || ''); setContextMenu({ visible: false, x: 0, y: 0, messageId: null }); }} className="p-2 text-left hover:bg-gray-100 rounded">복사</button>
+                <button onClick={() => { handleLike(contextMenu.messageId!); }} className="p-2 text-left hover:bg-gray-100 rounded">👍 좋아요</button>
+                <button onClick={() => { handleDislike(contextMenu.messageId!); }} className="p-2 text-left hover:bg-gray-100 rounded">👎 싫어요</button>
+                <button onClick={() => { handleCommentClick(contextMenu.messageId!); }} className="p-2 text-left hover:bg-gray-100 rounded">💬 댓글</button>
+                <button onClick={() => { handleShare(contextMenu.messageId!); }} className="p-2 text-left hover:bg-gray-100 rounded">🔗 공유</button>
+                <button onClick={() => { handleCopy(messages.find(m => m.id === contextMenu.messageId!)?.content || ''); }} className="p-2 text-left hover:bg-gray-100 rounded">복사</button>
             </div>
         )}
       <div ref={scrollContainerRef} className="flex-grow overflow-y-auto p-2 md:p-4">
