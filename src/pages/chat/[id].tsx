@@ -478,14 +478,14 @@ const ChatroomPage: React.FC = () => {
                             </div>
                             ) : (
                             <div className={`px-4 py-2 rounded-lg ${isCurrentUser ? 'bg-blue-500 text-white rounded-br-none' : isAiCurator ? 'bg-green-500 text-white rounded-bl-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'}`}>
-                                                        {isAiCurator && <strong className='block text-xs mb-1'>AI 큐레이터</strong>}
-                                                        {isAiCurator ? (
-                                                          <ReactMarkdown remarkPlugins={[remarkGfm]} className="prose prose-sm max-w-none">
-                                                            {message.content}
-                                                          </ReactMarkdown>
-                                                        ) : (
-                                                          message.content
-                                                        )}                            </div>
+                                                                                                        {isAiCurator && <strong className='block text-xs mb-1'>AI 큐레이터</strong>}
+                                                                                                        {isAiCurator ? (
+                                                                                                          <ReactMarkdown remarkPlugins={[remarkGfm]} className="prose prose-sm max-w-none">
+                                                                                                            {message.content}
+                                                                                                          </ReactMarkdown>
+                                                                                                        ) : (
+                                                                                                          message.content
+                                                                                                        )}                            </div>
                             )}
                             {totalReactions > 0 && (
                                 <div className={`absolute -bottom-4 ${isCurrentUser ? 'right-2' : 'left-2'} bg-gray-200 text-gray-600 text-xs px-1.5 py-0.5 rounded-full`}>
