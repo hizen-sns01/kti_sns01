@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, MouseEvent } from 'react';
 import { supabase } from '../supabaseClient';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
@@ -6,10 +6,11 @@ import Link from 'next/link';
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false); // Moved here
 
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } = { session: null } } = await supabase.auth.getSession(); // Added default value for session
       setIsLoggedIn(!!session);
     };
     checkSession();
