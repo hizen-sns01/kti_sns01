@@ -55,20 +55,16 @@ const ChatroomPage: React.FC = () => {
   const processMessages = async (data: any[]) => {
     const { data: { user } } = await supabase.auth.getUser();
     return Promise.all(data.map(async (item) => {
-      const { data: likeData, count: likeCount } = await supabase.from('message_likes').select('*', { count: 'exact' }).eq('message_id', item.id);
-      const user_has_liked = likeData ? likeData.some(l => l.user_id === user?.id) : false;
-      const { data: dislikeData, count: dislikeCount } = await supabase.from('message_dislikes').select('*', { count: 'exact' }).eq('message_id', item.id);
-      const user_has_disliked = dislikeData ? dislikeData.some(d => d.user_id === user?.id) : false;
-      const { count: commentCount } = await supabase.from('message_comments').select('id', { count: 'exact' }).eq('message_id', item.id);
-      const { data: profileData } = await supabase.from('profiles').select('nickname').eq('id', item.user_id).single();
+      const { data: likeData } = await supabase.from('message_likes').select('user_id').eq('message_id', item.id).eq('user_id', user?.id).single();
+      const { data: dislikeData } = await supabase.from('message_dislikes').select('user_id').eq('message_id', item.id).eq('user_id', user?.id).single();
+      
       return {
         ...item,
-        profiles: profileData,
-        like_count: likeCount || 0,
-        dislike_count: dislikeCount || 0,
-        comment_count: commentCount || 0,
-        user_has_liked: user_has_liked,
-        user_has_disliked: user_has_disliked,
+        like_count: item.message_likes[0]?.count || 0,
+        dislike_count: item.message_dislikes[0]?.count || 0,
+        comment_count: item.message_comments[0]?.count || 0,
+        user_has_liked: !!likeData,
+        user_has_disliked: !!dislikeData,
       };
     }));
   };
@@ -80,7 +76,10 @@ const ChatroomPage: React.FC = () => {
       const { data, error } = await supabase
         .from('messages')
         .select(`*,
-          profiles(nickname)
+          profiles(nickname),
+          message_likes(count),
+          message_dislikes(count),
+          message_comments(count)
         `)
         .eq('chatroom_id', id)
         .order('created_at', { ascending: false })
@@ -110,7 +109,10 @@ const ChatroomPage: React.FC = () => {
     const { data, error } = await supabase
       .from('messages')
       .select(`*,
-        profiles(nickname)
+        profiles(nickname),
+        message_likes(count),
+        message_dislikes(count),
+        message_comments(count)
       `)
       .eq('chatroom_id', id)
       .order('created_at', { ascending: false })
@@ -138,6 +140,8 @@ const ChatroomPage: React.FC = () => {
 
     const channel = supabase.channel(`chatroom:${id}`);
     const messageSubscription = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` }, async (payload) => {
+      // This is not the most efficient way, as it re-processes the new message,
+      // but it ensures consistency with the main data structure.
       const processedPayload = await processMessages([payload.new]);
       setMessages(prev => [...prev, ...processedPayload]);
     });
