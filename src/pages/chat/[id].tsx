@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../supabaseClient';
 import { User } from '@supabase/supabase-js';
@@ -115,8 +115,6 @@ const ChatroomPage: React.FC = () => {
       if (data) {
         const processed = await processMessages(data);
         setMessages(processed.reverse());
-        // Use timeout to ensure DOM is updated before scrolling
-        setTimeout(() => scrollToBottom('auto'), 0);
       }
       await supabase.rpc('update_last_read_at', { chatroom_id_param: id });
     } catch (error: any) {
@@ -207,6 +205,12 @@ const ChatroomPage: React.FC = () => {
     channel.subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [id]);
+
+  useLayoutEffect(() => {
+    if (!loading && page === 1 && messages.length > 0) {
+        scrollToBottom('auto');
+    }
+  }, [loading, messages, page]);
 
   useEffect(() => {
     const handleScroll = () => {
