@@ -45,8 +45,8 @@ const ChatroomPage: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [showNewMessageButton, setShowNewMessageButton] = useState(false);
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, messageId: null as number | null });
 
-  // For suggestions feature
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -62,7 +62,17 @@ const ChatroomPage: React.FC = () => {
       setCurrentUser(user);
     };
     setupUser();
-  }, []);
+
+    const handleClickOutside = (event: MouseEvent) => {
+        if (contextMenu.visible) {
+            setContextMenu({ visible: false, x: 0, y: 0, messageId: null });
+        }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+        document.removeEventListener('click', handleClickOutside);
+    };
+  }, [contextMenu.visible]);
 
   const processMessages = async (data: any[]) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -359,6 +369,11 @@ const ChatroomPage: React.FC = () => {
       .catch(err => console.error('클립보드 복사 실패:', err));
   };
 
+  const handleContextMenu = (e: React.MouseEvent, messageId: number) => {
+    e.preventDefault();
+    setContextMenu({ visible: true, x: e.pageX, y: e.pageY, messageId });
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     setShowNewMessageButton(false);
@@ -370,6 +385,15 @@ const ChatroomPage: React.FC = () => {
 
   return (
     <div className="flex flex-col h-[calc(100vh-9rem)]">
+        {contextMenu.visible && (
+            <div style={{ top: contextMenu.y, left: contextMenu.x }} className="absolute z-50 bg-white border rounded-lg shadow-lg p-2 flex flex-col space-y-1">
+                <button onClick={() => { handleLike(contextMenu.messageId!); setContextMenu({ visible: false, x: 0, y: 0, messageId: null }); }} className="p-2 text-left hover:bg-gray-100 rounded">👍 좋아요</button>
+                <button onClick={() => { handleDislike(contextMenu.messageId!); setContextMenu({ visible: false, x: 0, y: 0, messageId: null }); }} className="p-2 text-left hover:bg-gray-100 rounded">👎 싫어요</button>
+                <button onClick={() => { handleCommentClick(contextMenu.messageId!); setContextMenu({ visible: false, x: 0, y: 0, messageId: null }); }} className="p-2 text-left hover:bg-gray-100 rounded">💬 댓글</button>
+                <button onClick={() => { handleShare(contextMenu.messageId!); setContextMenu({ visible: false, x: 0, y: 0, messageId: null }); }} className="p-2 text-left hover:bg-gray-100 rounded">🔗 공유</button>
+                <button onClick={() => { handleCopy(messages.find(m => m.id === contextMenu.messageId!)?.content || ''); setContextMenu({ visible: false, x: 0, y: 0, messageId: null }); }} className="p-2 text-left hover:bg-gray-100 rounded">복사</button>
+            </div>
+        )}
       <div ref={scrollContainerRef} className="flex-grow overflow-y-auto p-2 md:p-4">
         {loadingMore && <div className="text-center p-2">이전 대화 로딩 중...</div>}
         <div className="space-y-4">
@@ -387,6 +411,7 @@ const ChatroomPage: React.FC = () => {
             const isCurrentUser = message.user_id === currentUser?.id;
             const isAiCurator = message.user_id === '4bb3e1a3-099b-4b6c-bf3a-8b60c51baa79';
             const isCommand = !isAiCurator && botcall.keywords.some(keyword => message.content.startsWith(keyword));
+            const totalReactions = (message.like_count || 0) + (message.dislike_count || 0);
 
             return (
               <React.Fragment key={message.id}>
@@ -416,7 +441,7 @@ const ChatroomPage: React.FC = () => {
                     {/* Bubble & Time Area */}
                     <div className={`flex items-end gap-2 ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
                         {/* Bubble Area */}
-                        <div className="group relative">
+                        <div onContextMenu={(e) => handleContextMenu(e, message.id)} className="group relative">
                             {isCommand ? (
                             <div className="bg-gray-700 text-gray-100 px-4 py-3 rounded-lg shadow-md flex items-center font-mono">
                                 <svg className="w-5 h-5 mr-3 text-yellow-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -430,17 +455,11 @@ const ChatroomPage: React.FC = () => {
                                 {message.content}
                             </div>
                             )}
-                            <div className={`absolute top-0 ${isCurrentUser ? 'left-[-30px]' : 'right-[-30px]'} flex flex-col items-center space-y-1`}>
-                                <button onClick={() => handleLike(message.id)} className={`p-1 rounded-full bg-gray-100 hover:bg-gray-200 ${message.user_has_liked ? 'text-blue-500' : 'text-gray-600'}`}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.787l.25.125a2 2 0 002.29-1.787V12.5a2 2 0 012-2h3.362a2 2 0 001.788-1.106l.25-.5a2 2 0 00-1.788-2.894H14.5a2 2 0 00-2 2v1.333H6z" /></svg>
-                                </button>
-                                <button onClick={() => handleDislike(message.id)} className={`p-1 rounded-full bg-gray-100 hover:bg-gray-200 ${message.user_has_disliked ? 'text-blue-500' : 'text-gray-600'}`}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M18 9.5a1.5 1.5 0 11-3 0v-6a1.5 1.5 0 013 0v6zM14 9.667V4.237a2 2 0 00-1.106-1.787l-.25-.125a2 2 0 00-2.29 1.787V7.5a2 2 0 01-2 2H5.138a2 2 0 00-1.788 1.106l-.25.5a2 2 0 001.788 2.894H7.5a2 2 0 002-2V9.667H14z" /></svg>
-                                </button>
-                                <button onClick={() => handleCommentClick(message.id)} className="p-1 rounded-full bg-gray-100 hover:bg-gray-200"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clipRule="evenodd" /></svg></button>
-                                <button onClick={() => handleShare(message.id)} className="p-1 rounded-full bg-gray-100 hover:bg-gray-200"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor"><path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" /></svg></button>
-                                <button onClick={() => handleCopy(message.content)} className="p-1 rounded-full bg-gray-100 hover:bg-gray-200"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor"><path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" /><path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z" /></svg></button>
-                            </div>
+                            {totalReactions > 0 && (
+                                <div className={`absolute -bottom-4 ${isCurrentUser ? 'right-2' : 'left-2'} bg-gray-200 text-gray-600 text-xs px-1.5 py-0.5 rounded-full`}>
+                                    <span>👍 {message.like_count}</span> <span>👎 {message.dislike_count}</span>
+                                </div>
+                            )}
                         </div>
                         {/* Timestamp */}
                         {showTimestamp && <span className="text-xs text-gray-500 self-end whitespace-nowrap">{formatTime(message.created_at)}</span>}
