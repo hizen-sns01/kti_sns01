@@ -34,6 +34,7 @@ const ChatroomPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [showNewMessageButton, setShowNewMessageButton] = useState(false);
 
   // For suggestions feature
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -41,6 +42,7 @@ const ChatroomPage: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const shouldScrollToBottomRef = useRef(true);
 
   const MESSAGES_PER_PAGE = 30;
 
@@ -52,7 +54,6 @@ const ChatroomPage: React.FC = () => {
     setupUser();
   }, []);
 
-  // Processes messages to add user-specific data like 'user_has_liked'
   const processMessages = async (data: any[]) => {
     const { data: { user } } = await supabase.auth.getUser();
     return Promise.all(data.map(async (item) => {
@@ -73,6 +74,7 @@ const ChatroomPage: React.FC = () => {
   const fetchInitialMessages = async () => {
     if (!id) return;
     setLoading(true);
+    shouldScrollToBottomRef.current = true;
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -106,6 +108,7 @@ const ChatroomPage: React.FC = () => {
   const fetchMoreMessages = async () => {
     if (!id || !hasMore || loadingMore) return;
     setLoadingMore(true);
+    shouldScrollToBottomRef.current = false;
 
     const { data, error } = await supabase
       .from('messages')
@@ -127,8 +130,18 @@ const ChatroomPage: React.FC = () => {
 
     if (data && data.length > 0) {
       const processed = await processMessages(data);
+      const scrollContainer = scrollContainerRef.current;
+      const oldScrollHeight = scrollContainer?.scrollHeight || 0;
+
       setMessages(prev => [...processed.reverse(), ...prev]);
       setPage(prev => prev + 1);
+
+      if (scrollContainer) {
+        // Restore scroll position after prepending messages
+        requestAnimationFrame(() => {
+            scrollContainer.scrollTop = scrollContainer.scrollHeight - oldScrollHeight;
+        });
+      }
     } else {
       setHasMore(false);
     }
@@ -142,6 +155,9 @@ const ChatroomPage: React.FC = () => {
     const channel = supabase.channel(`chatroom:${id}`);
     const messageSubscription = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` }, async (payload) => {
       
+      const scrollContainer = scrollContainerRef.current;
+      const isAtBottom = scrollContainer ? (scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight) < 100 : true;
+
       const { data: newMessage, error } = await supabase
         .from('messages')
         .select(`*,
@@ -160,7 +176,11 @@ const ChatroomPage: React.FC = () => {
 
       if (newMessage) {
         const processedPayload = await processMessages([newMessage]);
+        shouldScrollToBottomRef.current = isAtBottom;
         setMessages(prev => [...prev, ...processedPayload]);
+        if (!isAtBottom) {
+            setShowNewMessageButton(true);
+        }
       }
     });
 
@@ -170,8 +190,15 @@ const ChatroomPage: React.FC = () => {
 
   useEffect(() => {
     const handleScroll = () => {
-      if (scrollContainerRef.current && scrollContainerRef.current.scrollTop === 0 && hasMore && !loadingMore) {
-        fetchMoreMessages();
+      const scrollContainer = scrollContainerRef.current;
+      if (scrollContainer) {
+        if (scrollContainer.scrollTop === 0 && hasMore && !loadingMore) {
+            fetchMoreMessages();
+        }
+        // If user scrolls to the bottom, hide the new message button
+        if (scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 1) {
+            setShowNewMessageButton(false);
+        }
       }
     };
 
@@ -181,7 +208,7 @@ const ChatroomPage: React.FC = () => {
   }, [hasMore, loadingMore, page]);
 
   useEffect(() => {
-    if (messages.length <= MESSAGES_PER_PAGE) {
+    if (shouldScrollToBottomRef.current) {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
@@ -211,6 +238,7 @@ const ChatroomPage: React.FC = () => {
     const trimmedMessage = newMessage.trim();
     if (trimmedMessage === '' || !currentUser || !id) return;
 
+    shouldScrollToBottomRef.current = true;
     const { error } = await supabase.from('messages').insert([{ chatroom_id: id, user_id: currentUser.id, content: trimmedMessage }]);
     
     if (error) {
@@ -323,6 +351,11 @@ const ChatroomPage: React.FC = () => {
       .catch(err => console.error('클립보드 복사 실패:', err));
   };
 
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    setShowNewMessageButton(false);
+  };
+
   if (loading) {
     return <div className="p-4 text-center">로딩 중...</div>;
   }
@@ -413,6 +446,14 @@ const ChatroomPage: React.FC = () => {
       )}
 
       <div className="p-2 md:p-4 bg-white border-t relative">
+        {showNewMessageButton && (
+            <button 
+                onClick={scrollToBottom}
+                className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-4 py-2 bg-blue-500 text-white rounded-full shadow-lg text-sm animate-bounce"
+            >
+                ↓ 새 메시지
+            </button>
+        )}
         {showSuggestions && suggestions.length > 0 && (
           <div className="absolute bottom-full left-0 right-0 mb-1 p-2 bg-white border rounded-lg shadow-lg">
             <p className="text-xs text-gray-500 mb-1 px-2">명령어 제안</p>
