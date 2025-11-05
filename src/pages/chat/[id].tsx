@@ -61,6 +61,25 @@ const ChatroomPage: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior });
   };
 
+  // Effect to save state to localStorage on unmount
+  useEffect(() => {
+    const saveState = () => {
+        if (id && messages.length > 0 && scrollContainerRef.current) {
+            localStorage.setItem(`chat_messages_${id}`, JSON.stringify(messages));
+            localStorage.setItem(`chat_scroll_position_${id}`, scrollContainerRef.current.scrollTop.toString());
+        }
+    };
+
+    // Save on tab/browser close
+    window.addEventListener('beforeunload', saveState);
+
+    return () => {
+        // Save on component unmount (e.g., navigating away)
+        saveState();
+        window.removeEventListener('beforeunload', saveState);
+    };
+  }, [id, messages]);
+
   useEffect(() => {
     const setupUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -167,9 +186,23 @@ const ChatroomPage: React.FC = () => {
     setLoadingMore(false);
   };
 
+  // Main effect for initialization and subscriptions
   useEffect(() => {
     if (!id) return;
-    fetchInitialMessages();
+
+    // Try to load from cache first
+    const cachedMessages = localStorage.getItem(`chat_messages_${id}`);
+    const cachedScroll = localStorage.getItem(`chat_scroll_position_${id}`);
+
+    if (cachedMessages) {
+        setMessages(JSON.parse(cachedMessages));
+        if (cachedScroll && scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTop = parseInt(cachedScroll, 10);
+        }
+        setLoading(false);
+    } else {
+        fetchInitialMessages();
+    }
 
     const channel = supabase.channel(`chatroom:${id}`);
     const messageSubscription = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` }, async (payload) => {
@@ -209,10 +242,14 @@ const ChatroomPage: React.FC = () => {
   }, [id]);
 
   useLayoutEffect(() => {
-    if (!loading && page === 1 && messages.length > 0) {
-        scrollToBottom('auto');
+    // This effect is now primarily for restoring scroll from cache
+    const cachedScroll = localStorage.getItem(`chat_scroll_position_${id}`);
+    if (cachedScroll && scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = parseInt(cachedScroll, 10);
+        // Clear cache after restoring
+        localStorage.removeItem(`chat_scroll_position_${id}`);
     }
-  }, [loading, messages, page]);
+  }, [id]);
 
   useEffect(() => {
     const handleScroll = () => {
