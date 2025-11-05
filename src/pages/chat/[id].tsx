@@ -4,6 +4,9 @@ import { supabase } from '../../supabaseClient';
 import { User } from '@supabase/supabase-js';
 import botcall from '../../botcall.json';
 import { useChatroomAdmin } from '../../context/ChatroomAdminContext'; // Import useChatroomAdmin
+import MessageCommentsModal from '../../components/MessageCommentsModal';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   id: number;
@@ -21,23 +24,33 @@ interface Message {
   user_has_disliked: boolean;
 }
 
+const MESSAGES_PER_PAGE = 20;
+
 const ChatroomPage: React.FC = () => {
-  const router = useRouter();
-  const { id } = router.query;
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [showCommentsModal, setShowCommentsModal] = useState(false);
-  const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
-  
-  // For suggestions feature
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [showNewMessageButton, setShowNewMessageButton] = useState(false);
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, messageId: null as number | null });
+
 
   const { setAdminStatus } = useChatroomAdmin(); // Use the context hook
+
+  const scrollToBottom = (behavior: 'smooth' | 'auto' = 'auto') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  };
+
+  const formatDateSeparator = (dateString: string) => {
+    const date = new Date(dateString);
+    return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
+  };
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true });
+  };
+
 
   useEffect(() => {
     const setupUser = async () => {
