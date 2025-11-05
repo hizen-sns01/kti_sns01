@@ -31,12 +31,18 @@ const ChatroomPage: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
-  
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   // For suggestions feature
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const MESSAGES_PER_PAGE = 30;
 
   useEffect(() => {
     const setupUser = async () => {
@@ -46,107 +52,94 @@ const ChatroomPage: React.FC = () => {
     setupUser();
   }, []);
 
-  const fetchMessages = async () => {
-    if (!id) return;
-
-    console.log('fetchMessages: Starting fetch...');
-    setLoading(true);
+  const processMessages = async (data: any[]) => {
     const { data: { user } } = await supabase.auth.getUser();
+    return Promise.all(data.map(async (item) => {
+      const { data: likeData, count: likeCount } = await supabase.from('message_likes').select('*', { count: 'exact' }).eq('message_id', item.id);
+      const user_has_liked = likeData ? likeData.some(l => l.user_id === user?.id) : false;
+      const { data: dislikeData, count: dislikeCount } = await supabase.from('message_dislikes').select('*', { count: 'exact' }).eq('message_id', item.id);
+      const user_has_disliked = dislikeData ? dislikeData.some(d => d.user_id === user?.id) : false;
+      const { count: commentCount } = await supabase.from('message_comments').select('id', { count: 'exact' }).eq('message_id', item.id);
+      const { data: profileData } = await supabase.from('profiles').select('nickname').eq('id', item.user_id).single();
+      return {
+        ...item,
+        profiles: profileData,
+        like_count: likeCount || 0,
+        dislike_count: dislikeCount || 0,
+        comment_count: commentCount || 0,
+        user_has_liked: user_has_liked,
+        user_has_disliked: user_has_disliked,
+      };
+    }));
+  };
 
-    const processMessages = async (data: any[]) => {
-      return Promise.all(data.map(async (item) => {
-        // Get user_has_liked and like_count
-        const { data: likeData, count: likeCount } = await supabase.from('message_likes').select('*', { count: 'exact' }).eq('message_id', item.id);
-        const user_has_liked = likeData ? likeData.some(l => l.user_id === user?.id) : false;
-
-        // Get user_has_disliked and dislike_count
-        const { data: dislikeData, count: dislikeCount } = await supabase.from('message_dislikes').select('*', { count: 'exact' }).eq('message_id', item.id);
-        const user_has_disliked = dislikeData ? dislikeData.some(d => d.user_id === user?.id) : false;
-
-        // Get comment_count
-        const { count: commentCount } = await supabase.from('message_comments').select('id', { count: 'exact' }).eq('message_id', item.id);
-
-        return {
-          ...item,
-          like_count: likeCount || 0,
-          dislike_count: dislikeCount || 0,
-          comment_count: commentCount || 0,
-          user_has_liked: user_has_liked,
-          user_has_disliked: user_has_disliked,
-        };
-      }));
-    };
-
+  const fetchInitialMessages = async () => {
+    if (!id) return;
+    setLoading(true);
     try {
-      const cachedMessagesJson = localStorage.getItem(`messages_${id}`);
-      let lastMessageTimestamp: string | null = null;
-
-      if (cachedMessagesJson) {
-        console.log('fetchMessages: Found cached messages.');
-        const cachedMessages = JSON.parse(cachedMessagesJson);
-        if (cachedMessages.length > 0) {
-          setMessages(cachedMessages);
-          lastMessageTimestamp = cachedMessages[cachedMessages.length - 1].created_at;
-          console.log(`fetchMessages: Loading from cache. Last message timestamp: ${lastMessageTimestamp}`);
-        }
-      } else {
-        console.log('fetchMessages: No cached messages found.');
-      }
-
-      let query = supabase
+      const { data, error } = await supabase
         .from('messages')
         .select(`*,
           profiles(nickname)
         `)
         .eq('chatroom_id', id)
-        .order('created_at', { ascending: true });
-
-      if (lastMessageTimestamp) {
-        console.log('fetchMessages: Fetching messages newer than cache.');
-        query = query.gt('created_at', lastMessageTimestamp);
-      } else {
-        console.log('fetchMessages: Fetching all messages.');
-      }
-
-      const { data, error } = await query;
+        .order('created_at', { ascending: false })
+        .range(0, MESSAGES_PER_PAGE - 1);
 
       if (error) throw error;
 
-      if (data && data.length > 0) {
-        console.log(`fetchMessages: Fetched ${data.length} new messages from Supabase.`);
-        const newMessages = await processMessages(data);
-        setMessages(prevMessages => {
-          const messageMap = new Map(prevMessages.map(m => [m.id, m]));
-          newMessages.forEach(m => messageMap.set(m.id, m));
-          const sortedMessages = Array.from(messageMap.values()).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-          console.log(`fetchMessages: Merged messages. Total: ${sortedMessages.length}`);
-          return sortedMessages;
-        });
-      } else {
-        console.log('fetchMessages: No new messages from Supabase.');
+      if (data) {
+        const processed = await processMessages(data);
+        setMessages(processed.reverse());
+        if (data.length < MESSAGES_PER_PAGE) {
+          setHasMore(false);
+        }
       }
-
-      if (!lastMessageTimestamp) {
-        await supabase.rpc('update_last_read_at', { chatroom_id_param: id });
-      }
-
+      await supabase.rpc('update_last_read_at', { chatroom_id_param: id });
     } catch (error: any) {
-      console.error('Error fetching messages:', error.message);
-      localStorage.removeItem(`messages_${id}`);
-      console.log('fetchMessages: Cleared corrupted cache.');
+      console.error('Error fetching initial messages:', error.message);
     } finally {
       setLoading(false);
-      console.log('fetchMessages: Fetch complete.');
     }
+  };
+
+  const fetchMoreMessages = async () => {
+    if (!id || !hasMore || loadingMore) return;
+    setLoadingMore(true);
+
+    const { data, error } = await supabase
+      .from('messages')
+      .select(`*,
+        profiles(nickname)
+      `)
+      .eq('chatroom_id', id)
+      .order('created_at', { ascending: false })
+      .range(page * MESSAGES_PER_PAGE, (page + 1) * MESSAGES_PER_PAGE - 1);
+
+    if (error) {
+      console.error('Error fetching more messages:', error);
+      setLoadingMore(false);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      const processed = await processMessages(data);
+      setMessages(prev => [...processed.reverse(), ...prev]);
+      setPage(prev => prev + 1);
+    } else {
+      setHasMore(false);
+    }
+    setLoadingMore(false);
   };
 
   useEffect(() => {
     if (!id) return;
-    fetchMessages();
+    fetchInitialMessages();
 
     const channel = supabase.channel(`chatroom:${id}`);
-    const messageSubscription = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` }, (payload) => {
-      fetchMessages();
+    const messageSubscription = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` }, async (payload) => {
+      const processedPayload = await processMessages([payload.new]);
+      setMessages(prev => [...prev, ...processedPayload]);
     });
 
     channel.subscribe();
@@ -154,15 +147,21 @@ const ChatroomPage: React.FC = () => {
   }, [id]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const handleScroll = () => {
+      if (scrollContainerRef.current && scrollContainerRef.current.scrollTop === 0 && hasMore && !loadingMore) {
+        fetchMoreMessages();
+      }
+    };
+
+    const scrollContainer = scrollContainerRef.current;
+    scrollContainer?.addEventListener('scroll', handleScroll);
+    return () => scrollContainer?.removeEventListener('scroll', handleScroll);
+  }, [hasMore, loadingMore, page]);
+
 
   useEffect(() => {
-    if (id && messages.length > 0) {
-      console.log(`Saving ${messages.length} messages to localStorage for id: ${id}`);
-      localStorage.setItem(`messages_${id}`, JSON.stringify(messages));
-    }
-  }, [messages, id]);
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -307,7 +306,8 @@ const ChatroomPage: React.FC = () => {
 
   return (
     <div className="flex flex-col h-[calc(100vh-9rem)]">
-      <div className="flex-grow overflow-y-auto p-2 md:p-4">
+      <div ref={scrollContainerRef} className="flex-grow overflow-y-auto p-2 md:p-4">
+        {loadingMore && <div className="text-center p-2">이전 대화 로딩 중...</div>}
         <div className="space-y-4">
           {messages.map((message) => {
             const isCurrentUser = message.user_id === currentUser?.id;
