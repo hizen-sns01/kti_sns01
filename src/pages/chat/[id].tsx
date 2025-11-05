@@ -52,6 +52,7 @@ const ChatroomPage: React.FC = () => {
     setupUser();
   }, []);
 
+  // Processes messages to add user-specific data like 'user_has_liked'
   const processMessages = async (data: any[]) => {
     const { data: { user } } = await supabase.auth.getUser();
     return Promise.all(data.map(async (item) => {
@@ -140,10 +141,27 @@ const ChatroomPage: React.FC = () => {
 
     const channel = supabase.channel(`chatroom:${id}`);
     const messageSubscription = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` }, async (payload) => {
-      // This is not the most efficient way, as it re-processes the new message,
-      // but it ensures consistency with the main data structure.
-      const processedPayload = await processMessages([payload.new]);
-      setMessages(prev => [...prev, ...processedPayload]);
+      
+      const { data: newMessage, error } = await supabase
+        .from('messages')
+        .select(`*,
+          profiles(nickname),
+          message_likes(count),
+          message_dislikes(count),
+          message_comments(count)
+        `)
+        .eq('id', payload.new.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching new message:', error);
+        return;
+      }
+
+      if (newMessage) {
+        const processedPayload = await processMessages([newMessage]);
+        setMessages(prev => [...prev, ...processedPayload]);
+      }
     });
 
     channel.subscribe();
@@ -162,9 +180,10 @@ const ChatroomPage: React.FC = () => {
     return () => scrollContainer?.removeEventListener('scroll', handleScroll);
   }, [hasMore, loadingMore, page]);
 
-
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length <= MESSAGES_PER_PAGE) {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
