@@ -1,4 +1,4 @@
-import React, { useState, useEffect, MouseEvent } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
@@ -35,7 +35,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       const menuButton = document.querySelector('[aria-controls="mobile-menu"]');
       const menu = document.querySelector('[role="menu"]');
 
-      if (isMenuOpen && menuButton && menu && !menuButton.contains(event.target as Node) && !menu.contains(event.target as Node)) {
+      // Cast event.target to HTMLElement for contains method
+      const target = event.target as HTMLElement;
+
+      if (isMenuOpen && menuButton && menu && !menuButton.contains(target) && !menu.contains(target)) {
         setIsMenuOpen(false);
       }
     };
