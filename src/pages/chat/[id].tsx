@@ -430,7 +430,7 @@ const ChatroomPage: React.FC = () => {
                                 {message.content}
                             </div>
                             )}
-                            <div className={`absolute top-0 bottom-0 -left-2 transform -translate-x-full flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity ${isCurrentUser ? 'hidden' : ''}`}>
+                            <div className={`absolute top-0 ${isCurrentUser ? 'left-[-30px]' : 'right-[-30px]'} flex flex-col items-center space-y-1`}>
                                 <button onClick={() => handleLike(message.id)} className={`p-1 rounded-full bg-gray-100 hover:bg-gray-200 ${message.user_has_liked ? 'text-blue-500' : 'text-gray-600'}`}>
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.787l.25.125a2 2 0 002.29-1.787V12.5a2 2 0 012-2h3.362a2 2 0 001.788-1.106l.25-.5a2 2 0 00-1.788-2.894H14.5a2 2 0 00-2 2v1.333H6z" /></svg>
                                 </button>
