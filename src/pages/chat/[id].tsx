@@ -3,10 +3,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../../supabaseClient';
 import { User } from '@supabase/supabase-js';
 import botcall from '../../botcall.json';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-
-import MessageCommentsModal from '../../components/MessageCommentsModal';
+import { useChatroomAdmin } from '../../context/ChatroomAdminContext'; // Import useChatroomAdmin
 
 interface Message {
   id: number;
@@ -24,16 +21,6 @@ interface Message {
   user_has_disliked: boolean;
 }
 
-const formatDateSeparator = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return new Intl.DateTimeFormat('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(date);
-};
-
-const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return new Intl.DateTimeFormat('ko-KR', { hour: 'numeric', minute: 'numeric', hour12: true }).format(date);
-};
-
 const ChatroomPage: React.FC = () => {
   const router = useRouter();
   const { id } = router.query;
@@ -43,42 +30,14 @@ const ChatroomPage: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [showNewMessageButton, setShowNewMessageButton] = useState(false);
-  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, messageId: null as number | null });
-
+  
+  // For suggestions feature
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const MESSAGES_PER_PAGE = 30;
-
-  const scrollToBottom = (behavior: 'auto' | 'smooth' = 'smooth') => {
-    messagesEndRef.current?.scrollIntoView({ behavior });
-  };
-
-  // Effect to save state to localStorage on unmount
-  useEffect(() => {
-    const saveState = () => {
-        if (id && messages.length > 0 && scrollContainerRef.current) {
-            localStorage.setItem(`chat_messages_${id}`, JSON.stringify(messages));
-            localStorage.setItem(`chat_scroll_position_${id}`, scrollContainerRef.current.scrollTop.toString());
-        }
-    };
-
-    // Save on tab/browser close
-    window.addEventListener('beforeunload', saveState);
-
-    return () => {
-        // Save on component unmount (e.g., navigating away)
-        saveState();
-        window.removeEventListener('beforeunload', saveState);
-    };
-  }, [id, messages]);
+  const { setAdminStatus } = useChatroomAdmin(); // Use the context hook
 
   useEffect(() => {
     const setupUser = async () => {
@@ -86,17 +45,34 @@ const ChatroomPage: React.FC = () => {
       setCurrentUser(user);
     };
     setupUser();
+  }, []);
 
-    const handleClickOutside = (event: MouseEvent) => {
-        if (contextMenu.visible) {
-            setContextMenu({ visible: false, x: 0, y: 0, messageId: null });
-        }
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!id || !currentUser) {
+        setAdminStatus(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('chatroom_ad')
+        .select('role')
+        .eq('chatroom_id', id)
+        .eq('user_id', currentUser.id)
+        .in('role', ['RA', 'CA'])
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+        console.error('Error checking admin status:', error.message);
+        setAdminStatus(false);
+        return;
+      }
+
+      setAdminStatus(!!data); // If data exists, user is an admin
     };
-    document.addEventListener('click', handleClickOutside);
-    return () => {
-        document.removeEventListener('click', handleClickOutside);
-    };
-  }, [contextMenu.visible]);
+
+    checkAdminStatus();
+  }, [id, currentUser, setAdminStatus]); // Re-run when chatroom id or user changes
 
   const processMessages = async (data: any[]) => {
     const { data: { user } } = await supabase.auth.getUser();

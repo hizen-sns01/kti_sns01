@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import { useChatroomAdmin } from '../context/ChatroomAdminContext'; // Import useChatroomAdmin
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
@@ -78,9 +79,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <Link href="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
                   프로필
                 </Link>
-                <Link href="/chatroom-settings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
-                  채팅방 설정
-                </Link>
+                {isAdmin && ( // Conditionally render Chatroom Settings
+                  <Link href="/chatroom-settings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
+                    채팅방 설정
+                  </Link>
+                )}
                 <button onClick={handleLogout} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
                   로그아웃
                 </button>

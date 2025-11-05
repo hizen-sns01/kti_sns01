@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { ChatroomAdminProvider } from '../context/ChatroomAdminContext'; // Import ChatroomAdminProvider
 
 const publicRoutes = ['/login']; // Routes accessible without login
 
@@ -73,9 +74,11 @@ function MyApp({ Component, pageProps }: AppProps) {
   }
 
   return (
-    <Layout>
-      <Component {...pageProps} />
-    </Layout>
+    <ChatroomAdminProvider> {/* Wrap Layout with ChatroomAdminProvider */}
+      <Layout>
+        <Component {...pageProps} />
+      </Layout>
+    </ChatroomAdminProvider>
   );
 }
 
