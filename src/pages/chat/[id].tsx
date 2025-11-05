@@ -27,6 +27,20 @@ interface Message {
 const MESSAGES_PER_PAGE = 20;
 
 const ChatroomPage: React.FC = () => {
+  const router = useRouter();
+  const { id } = router.query;
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [showCommentsModal, setShowCommentsModal] = useState(false);
+  const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
+  
+  // For suggestions feature
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -473,7 +487,8 @@ const ChatroomPage: React.FC = () => {
                                                                                                                                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                                                                                                                         {message.content}
                                                                                                                                       </ReactMarkdown>
-                                                                                                                                    </div>                                                                                                        ) : (
+                                                                                                                                    </div>
+                                                                                                        ) : (
                                                                                                           message.content
                                                                                                         )}                            </div>
                             )}
@@ -525,7 +540,7 @@ const ChatroomPage: React.FC = () => {
             value={newMessage}
             onChange={handleInputChange}
             className="flex-grow border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder={`메시지를 입력하세요... (${botcall.keywords.join(', ')}로 질문 가능)`}
+            placeholder={`메시지를 입력하세요... (${botcall.keywords.join(', ')})로 질문 가능)`}
           />
           <button type="submit" className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300" disabled={!newMessage.trim()}>
             전송
