@@ -22,6 +22,16 @@ interface Message {
   user_has_disliked: boolean;
 }
 
+const formatDateSeparator = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return new Intl.DateTimeFormat('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(date);
+};
+
+const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return new Intl.DateTimeFormat('ko-KR', { hour: 'numeric', minute: 'numeric', hour12: true }).format(date);
+};
+
 const ChatroomPage: React.FC = () => {
   const router = useRouter();
   const { id } = router.query;
@@ -137,7 +147,6 @@ const ChatroomPage: React.FC = () => {
       setPage(prev => prev + 1);
 
       if (scrollContainer) {
-        // Restore scroll position after prepending messages
         requestAnimationFrame(() => {
             scrollContainer.scrollTop = scrollContainer.scrollHeight - oldScrollHeight;
         });
@@ -195,7 +204,6 @@ const ChatroomPage: React.FC = () => {
         if (scrollContainer.scrollTop === 0 && hasMore && !loadingMore) {
             fetchMoreMessages();
         }
-        // If user scrolls to the bottom, hide the new message button
         if (scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 1) {
             setShowNewMessageButton(false);
         }
@@ -365,76 +373,81 @@ const ChatroomPage: React.FC = () => {
       <div ref={scrollContainerRef} className="flex-grow overflow-y-auto p-2 md:p-4">
         {loadingMore && <div className="text-center p-2">이전 대화 로딩 중...</div>}
         <div className="space-y-4">
-          {messages.map((message) => {
+          {messages.map((message, index) => {
+            const previousMessage = messages[index - 1];
+            const nextMessage = messages[index + 1];
+
+            const showDateSeparator = !previousMessage || new Date(message.created_at).toDateString() !== new Date(previousMessage.created_at).toDateString();
+
+            const isSameUserAsNext = nextMessage && nextMessage.user_id === message.user_id;
+            const isSameMinuteAsNext = nextMessage && new Date(nextMessage.created_at).getMinutes() === new Date(message.created_at).getMinutes() && new Date(nextMessage.created_at).getHours() === new Date(message.created_at).getHours() && new Date(nextMessage.created_at).toDateString() === new Date(message.created_at).toDateString();
+
+            const showTimestamp = !isSameUserAsNext || !isSameMinuteAsNext;
+
             const isCurrentUser = message.user_id === currentUser?.id;
             const isAiCurator = message.user_id === '4bb3e1a3-099b-4b6c-bf3a-8b60c51baa79';
             const isCommand = !isAiCurator && botcall.keywords.some(keyword => message.content.startsWith(keyword));
 
             return (
-              <div key={message.id} className={`flex w-full items-end ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
-                <div className={`flex items-end max-w-xs md:max-w-md ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                  {/* Avatar Area */}
-                  <div className="mx-2 flex shrink-0 flex-col items-center self-center text-xs text-gray-500">
-                    {!isCurrentUser && (
-                      <>
-                        {isAiCurator ? (
-                          <div className="relative h-8 w-8 rounded-full bg-green-200">
-                            <svg className="h-full w-full p-1.5 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                          </div>
-                        ) : (
-                          <div className="h-8 w-8 rounded-full bg-gray-300"></div>
-                        )}
-                        <div className="mt-1 w-12 truncate">{message.profiles?.nickname || (isAiCurator ? 'AI' : '...')}</div>
-                      </>
-                    )}
-                  </div>
+              <React.Fragment key={message.id}>
+                {showDateSeparator && (
+                    <div className="text-center my-4">
+                        <span className="bg-gray-200 text-gray-600 text-xs px-3 py-1 rounded-full">{formatDateSeparator(message.created_at)}</span>
+                    </div>
+                )}
+                <div className={`flex w-full items-end ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`flex items-end max-w-xs md:max-w-md ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                    {/* Avatar Area */}
+                    <div className="mx-2 flex shrink-0 flex-col items-center self-start text-xs text-gray-500">
+                      {!isCurrentUser && (
+                        <>
+                          {isAiCurator ? (
+                            <div className="relative h-8 w-8 rounded-full bg-green-200">
+                              <svg className="h-full w-full p-1.5 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                            </div>
+                          ) : (
+                            <div className="h-8 w-8 rounded-full bg-gray-300"></div>
+                          )}
+                          <div className="mt-1 w-12 truncate">{message.profiles?.nickname || (isAiCurator ? 'AI' : '...')}</div>
+                        </>
+                      )}
+                    </div>
 
-                  {/* Bubble Area */}
-                  <div className="group relative">
-                    {isCommand ? (
-                      <div className="bg-gray-700 text-gray-100 px-4 py-3 rounded-lg shadow-md flex items-center font-mono">
-                        <svg className="w-5 h-5 mr-3 text-yellow-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M9 3v4M7 5h4m5 3v4m-2-2h4m-7 7v4m-2-2h4" />
-                        </svg>
-                        <span>{message.content}</span>
-                      </div>
-                    ) : (
-                      <div className={`px-4 py-2 rounded-lg ${isCurrentUser ? 'bg-blue-500 text-white rounded-br-none' : isAiCurator ? 'bg-green-500 text-white rounded-bl-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'}`}>
-                        {isAiCurator && <strong className='block text-xs mb-1'>AI 큐레이터</strong>}
-                        {message.content}
-                      </div>
-                    )}
-                    <div className={`absolute top-0 bottom-0 -left-2 transform -translate-x-full flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity ${isCurrentUser ? 'hidden' : ''}`}>
-                        <button onClick={() => handleLike(message.id)} className={`p-1 rounded-full bg-gray-100 hover:bg-gray-200 ${message.user_has_liked ? 'text-blue-500' : 'text-gray-600'}`}>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.787l.25.125a2 2 0 002.29-1.787V12.5a2 2 0 012-2h3.362a2 2 0 001.788-1.106l.25-.5a2 2 0 00-1.788-2.894H14.5a2 2 0 00-2 2v1.333H6z" />
-                            </svg>
-                        </button>
-                        <button onClick={() => handleDislike(message.id)} className={`p-1 rounded-full bg-gray-100 hover:bg-gray-200 ${message.user_has_disliked ? 'text-blue-500' : 'text-gray-600'}`}>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M18 9.5a1.5 1.5 0 11-3 0v-6a1.5 1.5 0 013 0v6zM14 9.667V4.237a2 2 0 00-1.106-1.787l-.25-.125a2 2 0 00-2.29 1.787V7.5a2 2 0 01-2 2H5.138a2 2 0 00-1.788 1.106l-.25.5a2 2 0 001.788 2.894H7.5a2 2 0 002-2V9.667H14z" />
-                            </svg>
-                        </button>
-                        <button onClick={() => handleCommentClick(message.id)} className="p-1 rounded-full bg-gray-100 hover:bg-gray-200">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clipRule="evenodd" />
-                            </svg>
-                        </button>
-                        <button onClick={() => handleShare(message.id)} className="p-1 rounded-full bg-gray-100 hover:bg-gray-200">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
-                            </svg>
-                        </button>
-                        <button onClick={() => handleCopy(message.content)} className="p-1 rounded-full bg-gray-100 hover:bg-gray-200">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" />
-                                <path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z" />
-                            </svg>
-                        </button>
+                    {/* Bubble & Time Area */}
+                    <div className={`flex items-end gap-2 ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                        {/* Bubble Area */}
+                        <div className="group relative">
+                            {isCommand ? (
+                            <div className="bg-gray-700 text-gray-100 px-4 py-3 rounded-lg shadow-md flex items-center font-mono">
+                                <svg className="w-5 h-5 mr-3 text-yellow-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M9 3v4M7 5h4m5 3v4m-2-2h4m-7 7v4m-2-2h4" />
+                                </svg>
+                                <span>{message.content}</span>
+                            </div>
+                            ) : (
+                            <div className={`px-4 py-2 rounded-lg ${isCurrentUser ? 'bg-blue-500 text-white rounded-br-none' : isAiCurator ? 'bg-green-500 text-white rounded-bl-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'}`}>
+                                {isAiCurator && <strong className='block text-xs mb-1'>AI 큐레이터</strong>}
+                                {message.content}
+                            </div>
+                            )}
+                            <div className={`absolute top-0 bottom-0 -left-2 transform -translate-x-full flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity ${isCurrentUser ? 'hidden' : ''}`}>
+                                <button onClick={() => handleLike(message.id)} className={`p-1 rounded-full bg-gray-100 hover:bg-gray-200 ${message.user_has_liked ? 'text-blue-500' : 'text-gray-600'}`}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.787l.25.125a2 2 0 002.29-1.787V12.5a2 2 0 012-2h3.362a2 2 0 001.788-1.106l.25-.5a2 2 0 00-1.788-2.894H14.5a2 2 0 00-2 2v1.333H6z" /></svg>
+                                </button>
+                                <button onClick={() => handleDislike(message.id)} className={`p-1 rounded-full bg-gray-100 hover:bg-gray-200 ${message.user_has_disliked ? 'text-blue-500' : 'text-gray-600'}`}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M18 9.5a1.5 1.5 0 11-3 0v-6a1.5 1.5 0 013 0v6zM14 9.667V4.237a2 2 0 00-1.106-1.787l-.25-.125a2 2 0 00-2.29 1.787V7.5a2 2 0 01-2 2H5.138a2 2 0 00-1.788 1.106l-.25.5a2 2 0 001.788 2.894H7.5a2 2 0 002-2V9.667H14z" /></svg>
+                                </button>
+                                <button onClick={() => handleCommentClick(message.id)} className="p-1 rounded-full bg-gray-100 hover:bg-gray-200"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clipRule="evenodd" /></svg></button>
+                                <button onClick={() => handleShare(message.id)} className="p-1 rounded-full bg-gray-100 hover:bg-gray-200"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor"><path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" /></svg></button>
+                                <button onClick={() => handleCopy(message.content)} className="p-1 rounded-full bg-gray-100 hover:bg-gray-200"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor"><path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" /><path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z" /></svg></button>
+                            </div>
+                        </div>
+                        {/* Timestamp */}
+                        {showTimestamp && <span className="text-xs text-gray-500 self-end whitespace-nowrap">{formatTime(message.created_at)}</span>}
                     </div>
                   </div>
                 </div>
-              </div>
+              </React.Fragment>
             );
           })}
         </div>
