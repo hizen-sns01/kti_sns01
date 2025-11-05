@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useChatroomAdmin } from '../context/ChatroomAdminContext'; // Import useChatroomAdmin
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAdmin } = useChatroomAdmin(); // Import useChatroomAdmin
+  console.log('isAdmin:', isAdmin);
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false); // Moved here

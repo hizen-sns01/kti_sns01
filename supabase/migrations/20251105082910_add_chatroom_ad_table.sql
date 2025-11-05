@@ -20,4 +20,4 @@ ALTER TABLE public.chatroom_ad ADD CONSTRAINT chatroom_ad_user_id_fkey FOREIGN K
 
 -- Set up trigger for updated_at
 CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.chatroom_ad
-FOR EACH ROW EXECUTE FUNCTION moddatetime('updated_at');
+FOR EACH ROW EXECUTE PROCEDURE moddatetime('updated_at');
