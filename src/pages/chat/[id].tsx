@@ -50,6 +50,7 @@ const ChatroomPage: React.FC = () => {
   const [showNewMessageButton, setShowNewMessageButton] = useState(false);
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, messageId: null as number | null });
   const [showDropdown, setShowDropdown] = useState(false); // State for dropdown menu
+  const [chatroomName, setChatroomName] = useState('채팅방'); // State for chatroom name
 
   const { isAdmin, setAdminStatus } = useChatroomAdmin(); // Use chatroom admin context
 
@@ -131,6 +132,25 @@ const ChatroomPage: React.FC = () => {
 
     checkAdminStatus();
   }, [id, currentUser, setAdminStatus]);
+
+  // Effect to fetch chatroom name
+  useEffect(() => {
+    const fetchChatroomName = async () => {
+      if (!id) return;
+      const { data, error } = await supabase
+        .from('chatrooms')
+        .select('name')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching chatroom name:', error.message);
+      } else if (data) {
+        setChatroomName(data.name);
+      }
+    };
+    fetchChatroomName();
+  }, [id]);
 
   const processMessages = async (data: any[]) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -444,7 +464,9 @@ const ChatroomPage: React.FC = () => {
     <div className="flex flex-col h-[calc(100vh-9rem)]">
       {/* Chatroom Header with Hamburger Menu */}
       <div className="flex justify-between items-center p-4 border-b bg-white relative">
-        <h1 className="text-xl font-bold">채팅방</h1>
+        <div className="relative bg-blue-500 text-white py-1 px-4 rounded-r-lg shadow-md -ml-4 transform -skew-x-6">
+          <h1 className="text-xl font-bold skew-x-6">{chatroomName}</h1>
+        </div>
         <div className="relative">
           <button onClick={() => setShowDropdown(!showDropdown)} className="p-2 rounded-full hover:bg-gray-100">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
