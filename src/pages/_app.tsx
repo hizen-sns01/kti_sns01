@@ -25,11 +25,11 @@ function MyApp({ Component, pageProps }: AppProps) {
       if (session) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('nickname, interests')
+          .select('nickname, interest_tags')
           .eq('id', session.user.id)
           .single();
         
-        const isOnboardingComplete = profile && profile.nickname && profile.interests?.length > 0;
+        const isOnboardingComplete = profile && profile.nickname && profile.interest_tags?.length > 0;
 
         // If user is logged in and tries to access login, redirect to home
         if (router.pathname === '/login') {
@@ -40,7 +40,7 @@ function MyApp({ Component, pageProps }: AppProps) {
         // If onboarding is not complete, redirect to the correct step
         if (!isOnboardingComplete) {
           if (router.pathname !== '/interest-selection' && router.pathname !== '/nickname-setting') {
-            if (!profile || !profile.interests || profile.interests.length === 0) {
+            if (!profile || !profile.interest_tags || profile.interest_tags.length === 0) {
               router.replace('/interest-selection');
             } else if (!profile.nickname) {
               router.replace('/nickname-setting');
