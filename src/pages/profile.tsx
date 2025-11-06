@@ -35,22 +35,21 @@ const ProfilePage: React.FC = () => {
   const [activityMetrics, setActivityMetrics] = useState<ActivityMetrics | null>(null);
 
   const fetchProfileData = async (user: User) => {
-    const [profileRes, prescriptionsRes, metricsRes] = await Promise.all([
-        supabase.from('profiles').select('nickname').eq('id', user.id).single(),
-        supabase.from('prescriptions').select('id, content, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('user_activity_metrics').select('*').eq('user_id', user.id).single()
-    ]);
-
+            const [profileRes, prescriptionsRes, metricsRes] = await Promise.all([
+                supabase.from('profiles').select('nickname, interest_tags, status_symptoms, height, weight, age_group').eq('id', user.id).single(),
+                supabase.from('prescriptions').select('id, content, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
+                supabase.from('user_activity_metrics').select('*').eq('user_id', user.id).single()
+            ]);
+    
             if (profileRes.error) console.error('Error fetching profile:', profileRes.error);
             else if (profileRes.data) {
                 setNickname(profileRes.data.nickname || '');
-                // setInterestTags(profileRes.data.interest_tags || []);
-                // setSymptoms(profileRes.data.status_symptoms || '');
-                // setHeight(profileRes.data.height || '');
-                // setWeight(profileRes.data.weight || '');
-                // setAgeGroup(profileRes.data.age_group || '');
-            }
-    if (prescriptionsRes.error) console.error('Error fetching prescriptions:', prescriptionsRes.error);
+                setInterestTags(profileRes.data.interest_tags || []);
+                setSymptoms(profileRes.data.status_symptoms || '');
+                setHeight(profileRes.data.height || '');
+                setWeight(profileRes.data.weight || '');
+                setAgeGroup(profileRes.data.age_group || '');
+            }    if (prescriptionsRes.error) console.error('Error fetching prescriptions:', prescriptionsRes.error);
     else setPrescriptions(prescriptionsRes.data || []);
 
     if (metricsRes.error) console.error('Error fetching metrics:', metricsRes.error);
