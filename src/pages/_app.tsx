@@ -56,8 +56,6 @@ function MyApp({ Component, pageProps }: AppProps) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         router.push('/login');
-      } else if (event === 'SIGNED_IN') {
-        router.push('/');
       }
     });
 
