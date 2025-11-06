@@ -34,44 +34,47 @@ const ProfilePage: React.FC = () => {
   const [newPrescription, setNewPrescription] = useState('');
   const [activityMetrics, setActivityMetrics] = useState<ActivityMetrics | null>(null);
 
+  const fetchProfileData = async (user: User) => {
+    const [profileRes, prescriptionsRes, metricsRes] = await Promise.all([
+        supabase.from('profiles').select('nickname, interest_tags, status_symptoms, height, weight, age_group').eq('id', user.id).single(),
+        supabase.from('prescriptions').select('id, content, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('user_activity_metrics').select('*').eq('user_id', user.id).single()
+    ]);
+
+    if (profileRes.error) console.error('Error fetching profile:', profileRes.error);
+    else if (profileRes.data) {
+        setNickname(profileRes.data.nickname || '');
+        setInterestTags(profileRes.data.interest_tags || []);
+        setSymptoms(profileRes.data.status_symptoms || '');
+        setHeight(profileRes.data.height || '');
+        setWeight(profileRes.data.weight || '');
+        setAgeGroup(profileRes.data.age_group || '');
+    }
+
+    if (prescriptionsRes.error) console.error('Error fetching prescriptions:', prescriptionsRes.error);
+    else setPrescriptions(prescriptionsRes.data || []);
+
+    if (metricsRes.error) console.error('Error fetching metrics:', metricsRes.error);
+    else setActivityMetrics(metricsRes.data);
+  }
+
   useEffect(() => {
-    const fetchProfile = async () => {
+    const initialFetch = async () => {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUser(user);
-        
-        const [profileRes, prescriptionsRes, metricsRes] = await Promise.all([
-            supabase.from('profiles').select('nickname, interest_tags, status_symptoms, height, weight, age_group').eq('id', user.id).single(),
-            supabase.from('prescriptions').select('id, content, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
-            supabase.from('user_activity_metrics').select('*').eq('user_id', user.id).single()
-        ]);
-
-        if (profileRes.error) console.error('Error fetching profile:', profileRes.error);
-        else if (profileRes.data) {
-            setNickname(profileRes.data.nickname || '');
-            setInterestTags(profileRes.data.interest_tags || []);
-            setSymptoms(profileRes.data.status_symptoms || '');
-            setHeight(profileRes.data.height || '');
-            setWeight(profileRes.data.weight || '');
-            setAgeGroup(profileRes.data.age_group || '');
-        }
-
-        if (prescriptionsRes.error) console.error('Error fetching prescriptions:', prescriptionsRes.error);
-        else setPrescriptions(prescriptionsRes.data || []);
-
-        if (metricsRes.error) console.error('Error fetching metrics:', metricsRes.error);
-        else setActivityMetrics(metricsRes.data);
-
+        await fetchProfileData(user);
       } else {
         router.replace('/login');
       }
       setLoading(false);
     };
-    fetchProfile();
+    initialFetch();
   }, [router]);
 
   const handleSaveNickname = async () => {
+    if (!user) return;
     if (!nickname || nickname.trim().length < 2 || nickname.trim().length > 15) {
         alert('닉네임은 2자 이상 15자 이하여야 합니다.');
         return;
@@ -81,6 +84,7 @@ const ProfilePage: React.FC = () => {
         alert('닉네임 업데이트 중 오류가 발생했습니다: ' + error.message);
     } else {
         alert('닉네임이 변경되었습니다.');
+        await fetchProfileData(user); // Refetch data to ensure consistency
         setIsEditingNickname(false);
     }
   };
