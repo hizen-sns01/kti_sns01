@@ -464,10 +464,10 @@ const ChatroomPage: React.FC = () => {
     <div className="flex flex-col h-[calc(100vh-9rem)]">
       {/* Chatroom Header with Hamburger Menu */}
       <div className="flex justify-between items-center p-4 border-b bg-white relative">
-        <div className="relative bg-blue-500 text-white py-1 px-4 rounded-r-lg shadow-md -ml-4 transform -skew-x-6">
-          <h1 className="text-xl font-bold skew-x-6">{chatroomName}</h1>
+        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-500 text-white py-1 px-4 rounded-full shadow-lg z-10">
+          <h1 className="text-lg font-bold">{chatroomName}</h1>
         </div>
-        <div className="relative">
+        <div className="relative ml-auto">
           <button onClick={() => setShowDropdown(!showDropdown)} className="p-2 rounded-full hover:bg-gray-100">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
           </button>
