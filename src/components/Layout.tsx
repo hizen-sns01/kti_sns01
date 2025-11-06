@@ -56,12 +56,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <header className="bg-gray-800 text-white p-3 md:p-4 flex justify-between items-center relative z-10">
-        <h1 className="text-lg md:text-xl font-bold cursor-pointer" onClick={() => router.push('/chat')}>SNS App</h1>
-      </header>
       
-      <nav className="bg-white shadow-md">
-        <div className="container mx-auto flex justify-around items-center"> 
+      <nav className="bg-white shadow-md w-full">
+        <div className="flex justify-around items-center"> 
           {navItems.map((item) => (
             <Link key={item.label} href={item.href}>
               <div className={`py-3 px-2 block text-center text-base md:text-lg font-medium cursor-pointer ${ (item.href === '/' ? router.pathname === item.href : router.pathname.startsWith(item.href)) ? 'border-b-4 border-blue-500 text-blue-500' : 'text-gray-500 hover:text-blue-500'}`}>
