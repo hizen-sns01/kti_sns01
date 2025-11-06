@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link'; // Added Link import
 import { supabase } from '../../supabaseClient';
 import { User } from '@supabase/supabase-js';
 import botcall from '../../botcall.json';
