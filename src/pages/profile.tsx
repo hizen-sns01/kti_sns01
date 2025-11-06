@@ -23,6 +23,7 @@ const ProfilePage: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [nickname, setNickname] = useState('');
+  const [isEditingNickname, setIsEditingNickname] = useState(false);
   const [interestTags, setInterestTags] = useState<string[]>([]);
   const [newInterest, setNewInterest] = useState('');
   const [height, setHeight] = useState('');
@@ -40,7 +41,6 @@ const ProfilePage: React.FC = () => {
       if (user) {
         setUser(user);
         
-        // Fetch profile, prescriptions, and metrics in parallel
         const [profileRes, prescriptionsRes, metricsRes] = await Promise.all([
             supabase.from('profiles').select('nickname, interest_tags, status_symptoms, height, weight, age_group').eq('id', user.id).single(),
             supabase.from('prescriptions').select('id, content, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
@@ -70,6 +70,20 @@ const ProfilePage: React.FC = () => {
     };
     fetchProfile();
   }, [router]);
+
+  const handleSaveNickname = async () => {
+    if (!nickname || nickname.trim().length < 2 || nickname.trim().length > 15) {
+        alert('닉네임은 2자 이상 15자 이하여야 합니다.');
+        return;
+    }
+    const { error } = await supabase.rpc('update_nickname', { nickname_new: nickname });
+    if (error) {
+        alert('닉네임 업데이트 중 오류가 발생했습니다: ' + error.message);
+    } else {
+        alert('닉네임이 변경되었습니다.');
+        setIsEditingNickname(false);
+    }
+  };
 
   const handleSaveProfile = async () => {
     if (!user) return;
@@ -128,8 +142,24 @@ const ProfilePage: React.FC = () => {
           <h2 className="text-xl font-bold text-gray-800 mb-4">프로필</h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">닉네임</label>
-              <input type="text" value={nickname} onChange={(e) => setNickname(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="닉네임을 입력하세요" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">닉네임</label>
+              {isEditingNickname ? (
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="text" 
+                    value={nickname} 
+                    onChange={(e) => setNickname(e.target.value)} 
+                    className="flex-grow px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <button onClick={() => setNickname('')} className="p-2 text-gray-500 hover:text-gray-700">X</button>
+                  <button onClick={handleSaveNickname} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">저장</button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{nickname || '닉네임을 설정해주세요.'}</span>
+                  <button onClick={() => setIsEditingNickname(true)} className="text-sm text-blue-600 hover:underline">수정</button>
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">관심사 태그</label>
@@ -174,7 +204,7 @@ const ProfilePage: React.FC = () => {
         </div>
 
         <div className="p-4 md:p-6 border-b">
-            <button onClick={handleSaveProfile} className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">프로필 저장</button>
+            <button onClick={handleSaveProfile} className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">사용자 정보 저장</button>
         </div>
 
         <div className="p-4 md:p-6 border-b">
