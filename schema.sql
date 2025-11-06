@@ -1,7 +1,7 @@
--- =================================================================
--- FINAL SCHEMA SCRIPT (v2)
+ -- =================================================================
+-- FINAL SCHEMA SCRIPT (v3 - Idempotent)
 -- This single script contains everything needed for the database.
--- Run this entire script in a new, blank SQL query editor.
+-- It is now idempotent, meaning it can be run multiple times without error.
 -- =================================================================
 
 -- 1. Profiles Table and Auth Trigger
@@ -11,8 +11,12 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     email text,
     nickname text UNIQUE,
-    interests text[],
-    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+    interest_tags text[],
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    status_symptoms TEXT,
+    height NUMERIC,
+    weight NUMERIC,
+    age_group TEXT
 );
 
 -- Auth Trigger: Create a profile entry when a new user signs up
@@ -39,10 +43,10 @@ CREATE TABLE IF NOT EXISTS public.chatrooms (
     description text,
     interest text UNIQUE,
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-    last_message_at timestamp with time zone DEFAULT now() NOT NULL, -- Added for AI Curator
-    persona text, -- Added for Curator Persona
-    idle_threshold_minutes integer, -- Added for Idle Time Detection
-    enable_article_summary boolean DEFAULT false -- Added for Article Summary Toggle
+    last_message_at timestamp with time zone DEFAULT now() NOT NULL,
+    persona text,
+    idle_threshold_minutes integer,
+    enable_article_summary boolean DEFAULT false
 );
 
 CREATE TABLE IF NOT EXISTS public.messages (
@@ -51,11 +55,11 @@ CREATE TABLE IF NOT EXISTS public.messages (
     user_id uuid REFERENCES auth.users(id) NOT NULL,
     content text NOT NULL,
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-    is_ai_curator boolean DEFAULT false NOT NULL, -- Added for AI Curator
-    curator_message_type text, -- Added for Curator Message Type
-    is_deleted boolean DEFAULT false NOT NULL, -- Added for soft delete
-    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL, -- Added for soft delete
-    like_count integer DEFAULT 0 NOT NULL -- Added for like feature
+    is_ai_curator boolean DEFAULT false NOT NULL,
+    curator_message_type text,
+    is_deleted boolean DEFAULT false NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    like_count integer DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS public.participants (
@@ -75,7 +79,7 @@ CREATE TABLE IF NOT EXISTS public.feeds (
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Function to update last_message_at in chatrooms table (for AI Curator)
+-- Function to update last_message_at in chatrooms table
 CREATE OR REPLACE FUNCTION public.update_last_message_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -86,7 +90,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger to execute the function after a new message is inserted (for AI Curator)
+-- Trigger to execute the function after a new message is inserted
 DROP TRIGGER IF EXISTS on_new_message ON public.messages;
 CREATE TRIGGER on_new_message
   AFTER INSERT ON public.messages
@@ -105,15 +109,6 @@ ON CONFLICT (interest) DO NOTHING;
 
 -- 4. Row Level Security (RLS) Policies
 
--- First, drop all dependent policies
-DROP POLICY IF EXISTS "Users can view messages in chatrooms they are in" ON public.messages;
-DROP POLICY IF EXISTS "Users can insert messages in chatrooms they are in" ON public.messages;
-DROP POLICY IF EXISTS "Users can view participants in chatrooms they are in" ON public.participants;
-
--- Then, drop the function
-DROP FUNCTION IF EXISTS public.is_participant(uuid) CASCADE;
-
--- Now, create the function
 CREATE OR REPLACE FUNCTION public.is_participant(p_chatroom_id uuid)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
@@ -124,16 +119,12 @@ BEGIN
 END;
 $$;
 
--- Finally, create all policies
-
 -- Profiles Policies
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can insert their own profile." ON public.profiles;
 CREATE POLICY "Users can insert their own profile." ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
-
 DROP POLICY IF EXISTS "Users can update their own profile." ON public.profiles;
 CREATE POLICY "Users can update their own profile." ON public.profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
-
 DROP POLICY IF EXISTS "Authenticated users can view all profiles" ON public.profiles;
 CREATE POLICY "Authenticated users can view all profiles" ON public.profiles FOR SELECT TO authenticated USING (true);
 
@@ -144,14 +135,17 @@ CREATE POLICY "Authenticated users can view all chatrooms" ON public.chatrooms F
 
 -- Messages Policies
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view messages in chatrooms they are in" ON public.messages;
 CREATE POLICY "Users can view messages in chatrooms they are in" ON public.messages FOR SELECT USING ( public.is_participant(chatroom_id) );
+DROP POLICY IF EXISTS "Users can insert messages in chatrooms they are in" ON public.messages;
 CREATE POLICY "Users can insert messages in chatrooms they are in" ON public.messages FOR INSERT WITH CHECK ( public.is_participant(chatroom_id) );
+DROP POLICY IF EXISTS "Users can update their own messages" ON public.messages;
 CREATE POLICY "Users can update their own messages" ON public.messages FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 -- Participants Policies
 ALTER TABLE public.participants ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view participants in chatrooms they are in" ON public.participants;
 CREATE POLICY "Users can view participants in chatrooms they are in" ON public.participants FOR SELECT USING ( public.is_participant(chatroom_id) );
-
 DROP POLICY IF EXISTS "Users can update their own participation record" ON public.participants;
 CREATE POLICY "Users can update their own participation record" ON public.participants FOR UPDATE USING ( user_id = auth.uid() ) WITH CHECK ( user_id = auth.uid() );
 
@@ -160,91 +154,74 @@ ALTER TABLE public.feeds ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Authenticated users can view feeds" ON public.feeds;
 CREATE POLICY "Authenticated users can view feeds" ON public.feeds FOR SELECT TO authenticated USING (true);
 
--- Like Tables
-CREATE TABLE IF NOT EXISTS public.message_likes (
-    id bigint GENERATED BY DEFAULT AS IDENTITY NOT NULL PRIMARY KEY,
-    message_id bigint REFERENCES public.messages(id) ON DELETE CASCADE NOT NULL,
-    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-    UNIQUE (message_id, user_id)
-);
-
--- Message Likes Policies
+-- Like/Dislike/Comment Tables & Policies
+CREATE TABLE IF NOT EXISTS public.message_likes ( id bigint GENERATED BY DEFAULT AS IDENTITY NOT NULL PRIMARY KEY, message_id bigint REFERENCES public.messages(id) ON DELETE CASCADE NOT NULL, user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL, created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL, UNIQUE (message_id, user_id) );
 ALTER TABLE public.message_likes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view all likes" ON public.message_likes;
 CREATE POLICY "Users can view all likes" ON public.message_likes FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Users can insert their own likes" ON public.message_likes;
 CREATE POLICY "Users can insert their own likes" ON public.message_likes FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete their own likes" ON public.message_likes;
 CREATE POLICY "Users can delete their own likes" ON public.message_likes FOR DELETE USING (auth.uid() = user_id);
 
-
-
--- 5. Realtime (Optional, run separately if needed)
--- ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
-
-CREATE TABLE post_likes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  post_id UUID REFERENCES feeds(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(post_id, user_id)
-);
-
-CREATE TABLE post_dislikes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  post_id UUID REFERENCES feeds(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(post_id, user_id)
-);
-
-CREATE TABLE post_comments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  post_id UUID REFERENCES feeds(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  content TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE TABLE message_dislikes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  message_id BIGINT REFERENCES messages(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(message_id, user_id)
-);
-
-CREATE TABLE message_comments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  message_id BIGINT REFERENCES messages(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  content TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- RLS Policies for new tables
-
+CREATE TABLE IF NOT EXISTS public.post_likes ( id UUID PRIMARY KEY DEFAULT gen_random_uuid(), post_id UUID REFERENCES feeds(id) ON DELETE CASCADE, user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE, created_at TIMESTAMPTZ DEFAULT now(), UNIQUE(post_id, user_id) );
 ALTER TABLE public.post_likes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view all likes" ON public.post_likes;
 CREATE POLICY "Users can view all likes" ON public.post_likes FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Users can insert their own likes" ON public.post_likes;
 CREATE POLICY "Users can insert their own likes" ON public.post_likes FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete their own likes" ON public.post_likes;
 CREATE POLICY "Users can delete their own likes" ON public.post_likes FOR DELETE USING (auth.uid() = user_id);
 
+CREATE TABLE IF NOT EXISTS public.post_dislikes ( id UUID PRIMARY KEY DEFAULT gen_random_uuid(), post_id UUID REFERENCES feeds(id) ON DELETE CASCADE, user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE, created_at TIMESTAMPTZ DEFAULT now(), UNIQUE(post_id, user_id) );
 ALTER TABLE public.post_dislikes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view all dislikes" ON public.post_dislikes;
 CREATE POLICY "Users can view all dislikes" ON public.post_dislikes FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Users can insert their own dislikes" ON public.post_dislikes;
 CREATE POLICY "Users can insert their own dislikes" ON public.post_dislikes FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete their own dislikes" ON public.post_dislikes;
 CREATE POLICY "Users can delete their own dislikes" ON public.post_dislikes FOR DELETE USING (auth.uid() = user_id);
 
+CREATE TABLE IF NOT EXISTS public.post_comments ( id UUID PRIMARY KEY DEFAULT gen_random_uuid(), post_id UUID REFERENCES feeds(id) ON DELETE CASCADE, user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE, content TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT now() );
 ALTER TABLE public.post_comments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view all comments" ON public.post_comments;
 CREATE POLICY "Users can view all comments" ON public.post_comments FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Users can insert their own comments" ON public.post_comments;
 CREATE POLICY "Users can insert their own comments" ON public.post_comments FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update their own comments" ON public.post_comments;
 CREATE POLICY "Users can update their own comments" ON public.post_comments FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete their own comments" ON public.post_comments;
 CREATE POLICY "Users can delete their own comments" ON public.post_comments FOR DELETE USING (auth.uid() = user_id);
 
+CREATE TABLE IF NOT EXISTS public.message_dislikes ( id UUID PRIMARY KEY DEFAULT gen_random_uuid(), message_id BIGINT REFERENCES messages(id) ON DELETE CASCADE, user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE, created_at TIMESTAMPTZ DEFAULT now(), UNIQUE(message_id, user_id) );
 ALTER TABLE public.message_dislikes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view all dislikes" ON public.message_dislikes;
 CREATE POLICY "Users can view all dislikes" ON public.message_dislikes FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Users can insert their own dislikes" ON public.message_dislikes;
 CREATE POLICY "Users can insert their own dislikes" ON public.message_dislikes FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete their own dislikes" ON public.message_dislikes;
 CREATE POLICY "Users can delete their own dislikes" ON public.message_dislikes FOR DELETE USING (auth.uid() = user_id);
 
+CREATE TABLE IF NOT EXISTS public.message_comments ( id UUID PRIMARY KEY DEFAULT gen_random_uuid(), message_id BIGINT REFERENCES messages(id) ON DELETE CASCADE, user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE, content TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT now() );
 ALTER TABLE public.message_comments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view all comments" ON public.message_comments;
 CREATE POLICY "Users can view all comments" ON public.message_comments FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Users can insert their own comments" ON public.message_comments;
 CREATE POLICY "Users can insert their own comments" ON public.message_comments FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update their own comments" ON public.message_comments;
 CREATE POLICY "Users can update their own comments" ON public.message_comments FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete their own comments" ON public.message_comments;
 CREATE POLICY "Users can delete their own comments" ON public.message_comments FOR DELETE USING (auth.uid() = user_id);
+
+-- Profile Page Additions
+CREATE TABLE IF NOT EXISTS public.prescriptions ( id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL, content TEXT, image_url TEXT, created_at TIMESTAMPTZ DEFAULT now() NOT NULL );
+ALTER TABLE public.prescriptions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can manage their own prescriptions" ON public.prescriptions;
+CREATE POLICY "Users can manage their own prescriptions" ON public.prescriptions FOR ALL USING (auth.uid() = user_id);
+
+CREATE TABLE IF NOT EXISTS public.user_activity_metrics ( user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE, total_activity_time_minutes BIGINT DEFAULT 0, total_messages INTEGER DEFAULT 0, total_reactions_received INTEGER DEFAULT 0, total_shares INTEGER DEFAULT 0, rooms_created INTEGER DEFAULT 0, participants_in_rooms INTEGER DEFAULT 0, updated_at TIMESTAMPTZ DEFAULT now() );
+ALTER TABLE public.user_activity_metrics ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view their own activity" ON public.user_activity_metrics;
+CREATE POLICY "Users can view their own activity" ON public.user_activity_metrics FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins can update all metrics" ON public.user_activity_metrics;
+CREATE POLICY "Admins can update all metrics" ON public.user_activity_metrics FOR ALL USING (true); -- Replace `true` with a proper admin check in production
