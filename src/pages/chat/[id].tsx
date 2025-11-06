@@ -41,7 +41,15 @@ const ChatroomPage: React.FC = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isInitialLoad = useRef(true);
   const [page, setPage] = useState(1);
+
+  useLayoutEffect(() => {
+    if (isInitialLoad.current && messages.length > 0) {
+      scrollToBottom('auto');
+      isInitialLoad.current = false;
+    }
+  }, [messages]);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -139,7 +147,6 @@ const ChatroomPage: React.FC = () => {
       if (data) {
         const processed = await processMessages(data);
         setMessages(processed.reverse());
-        setTimeout(() => scrollToBottom('auto'), 0);
       }
       await supabase.rpc('update_last_read_at', { chatroom_id_param: id });
     } catch (error: any) {
