@@ -41,16 +41,15 @@ const ProfilePage: React.FC = () => {
         supabase.from('user_activity_metrics').select('*').eq('user_id', user.id).single()
     ]);
 
-    if (profileRes.error) console.error('Error fetching profile:', profileRes.error);
-    else if (profileRes.data) {
-        setNickname(profileRes.data.nickname || '');
-        setInterestTags(profileRes.data.interest_tags || []);
-        setSymptoms(profileRes.data.status_symptoms || '');
-        setHeight(profileRes.data.height || '');
-        setWeight(profileRes.data.weight || '');
-        setAgeGroup(profileRes.data.age_group || '');
-    }
-
+            if (profileRes.error) console.error('Error fetching profile:', profileRes.error);
+            else if (profileRes.data) {
+                setNickname(profileRes.data.nickname || '');
+                // setInterestTags(profileRes.data.interest_tags || []);
+                // setSymptoms(profileRes.data.status_symptoms || '');
+                // setHeight(profileRes.data.height || '');
+                // setWeight(profileRes.data.weight || '');
+                // setAgeGroup(profileRes.data.age_group || '');
+            }
     if (prescriptionsRes.error) console.error('Error fetching prescriptions:', prescriptionsRes.error);
     else setPrescriptions(prescriptionsRes.data || []);
 
