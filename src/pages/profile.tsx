@@ -226,15 +226,15 @@ const ProfilePage: React.FC = () => {
             </li>
             <li className="py-3 flex justify-between items-center cursor-pointer hover:bg-gray-50">
               <span className="font-medium text-gray-700">공지사항</span>
-              <span className="text-gray-400">></span>
+              <span className="text-gray-400">&gt;</span>
             </li>
             <li className="py-3 flex justify-between items-center cursor-pointer hover:bg-gray-50">
               <span className="font-medium text-gray-700">고객센터/운영정책</span>
-              <span className="text-gray-400">></span>
+              <span className="text-gray-400">&gt;</span>
             </li>
             <li className="py-3 flex justify-between items-center cursor-pointer hover:bg-gray-50">
               <span className="font-medium text-gray-700">앱 관리</span>
-              <span className="text-gray-400">></span>
+              <span className="text-gray-400">&gt;</span>
             </li>
           </ul>
         </div>
