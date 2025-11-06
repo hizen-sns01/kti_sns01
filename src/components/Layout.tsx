@@ -6,63 +6,10 @@ import { useChatroomAdmin } from '../context/ChatroomAdminContext'; // Import us
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAdmin } = useChatroomAdmin(); // Import useChatroomAdmin
-  console.log('isAdmin:', isAdmin);
-  const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false); // Moved here
-
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } = { session: null } } = await supabase.auth.getSession(); // Added default value for session
-      setIsLoggedIn(!!session);
-    };
-    checkSession();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(!!session);
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push('/login'); // Redirect to login page after logout
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      // Check if the click is outside the menu and the button
-      const menuButton = document.querySelector('[aria-controls="mobile-menu"]');
-      const menu = document.querySelector('[role="menu"]');
-
-      // Cast event.target to HTMLElement for contains method
-      const target = event.target as HTMLElement;
-
-      if (isMenuOpen && menuButton && menu && !menuButton.contains(target) && !menu.contains(target)) {
-        setIsMenuOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isMenuOpen]); // Only re-run if isMenuOpen changes
-
-  const navItems = [
-    { href: '/', label: '홈' },
-    { href: '/chat', label: '채팅' },
-    // Removed '/profile' from here
-  ];
-
-  const { isAdmin } = useChatroomAdmin(); // Import useChatroomAdmin
   const router = useRouter();
   const { id } = router.query; // Get chatroom ID from router query
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false); // Moved here
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -87,11 +34,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // Check if the click is outside the menu and the button
       const menuButton = document.querySelector('[aria-controls="mobile-menu"]');
       const menu = document.querySelector('[role="menu"]');
-
-      // Cast event.target to HTMLElement for contains method
       const target = event.target as HTMLElement;
 
       if (isMenuOpen && menuButton && menu && !menuButton.contains(target) && !menu.contains(target)) {
@@ -103,37 +47,33 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isMenuOpen]); // Only re-run if isMenuOpen changes
+  }, [isMenuOpen]);
 
   const navItems = [
     { href: '/', label: '홈' },
     { href: '/chat', label: '채팅' },
-    // Removed '/profile' from here
   ];
 
   return (
-    // Add a max-w-2xl for mobile and center it, allowing it to grow on larger screens
     <div className="max-w-2xl mx-auto">
-      <header className="bg-gray-800 text-white p-3 md:p-4 flex justify-between items-center relative z-10"> {/* Added relative z-10 for dropdown positioning */}
+      <header className="bg-gray-800 text-white p-3 md:p-4 flex justify-between items-center relative z-10">
         <h1 className="text-lg md:text-xl font-bold cursor-pointer" onClick={() => router.push('/chat')}>SNS App</h1>
       </header>
       
-      {/* For mobile, a bottom navigation is often better, but for now let's adjust the top nav */}
       <nav className="bg-white shadow-md">
-        <div className="container mx-auto flex justify-around items-center"> {/* Added items-center for vertical alignment */}
+        <div className="container mx-auto flex justify-around items-center"> 
           {navItems.map((item) => (
             <Link key={item.label} href={item.href}>
-              {/* Adjust padding and font size for mobile */}
               <div className={`py-3 px-2 block text-center text-base md:text-lg font-medium cursor-pointer ${ (item.href === '/' ? router.pathname === item.href : router.pathname.startsWith(item.href)) ? 'border-b-4 border-blue-500 text-blue-500' : 'text-gray-500 hover:text-blue-500'}`}>
                 {item.label}
               </div>
             </Link>
           ))}
           {isLoggedIn && (
-            <div className="relative ml-auto"> {/* ml-auto pushes it to the right */}
+            <div className="relative ml-auto"> 
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+                className="p-2 rounded-md text-gray-400 hover:text-black focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
                 aria-controls="mobile-menu"
                 aria-expanded={isMenuOpen}
               >
@@ -147,7 +87,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                   <Link href="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
                     프로필
                   </Link>
-                  {isAdmin && id && ( // Conditionally render Chatroom Settings and ensure id exists
+                  {isAdmin && id && (
                     <Link href={`/chat/${id}/settings`} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
                       채팅방 설정
                     </Link>
@@ -162,7 +102,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </div>
       </nav>
 
-      {/* Adjust padding for mobile */}
       <main className="p-2 md:p-4">{children}</main>
     </div>
   );
