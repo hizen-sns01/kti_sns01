@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import { useRouter } from 'next/router';
-import Link from 'next/link'; // Added Link import
+import Link from 'next/link';
 import { supabase } from '../../supabaseClient';
 import { User } from '@supabase/supabase-js';
 import botcall from '../../botcall.json';
 
 import MessageCommentsModal from '../../components/MessageCommentsModal';
+import { useChatroomAdmin } from '../../context/ChatroomAdminContext';
 
 interface Message {
   id: number;
@@ -48,6 +49,9 @@ const ChatroomPage: React.FC = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [showNewMessageButton, setShowNewMessageButton] = useState(false);
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, messageId: null as number | null });
+  const [showDropdown, setShowDropdown] = useState(false); // State for dropdown menu
+
+  const { isAdmin, setAdminStatus } = useChatroomAdmin(); // Use chatroom admin context
 
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -89,12 +93,44 @@ const ChatroomPage: React.FC = () => {
         if (contextMenu.visible) {
             setContextMenu({ visible: false, x: 0, y: 0, messageId: null });
         }
+        // Close dropdown if click is outside the dropdown and its toggle button
+        const target = event.target as HTMLElement;
+        if (showDropdown && !target.closest('.relative')) {
+            setShowDropdown(false);
+        }
     };
     document.addEventListener('click', handleClickOutside);
     return () => {
         document.removeEventListener('click', handleClickOutside);
     };
-  }, [contextMenu.visible]);
+  }, [contextMenu.visible, showDropdown]);
+
+  // Effect to check admin status
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!id || !currentUser) return;
+
+      const { data, error } = await supabase
+        .from('chatroom_ad')
+        .select('id')
+        .eq('chatroom_id', id)
+        .eq('user_id', currentUser.id)
+        .eq('role', 'RA')
+        .eq('is_active', true)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+        console.error('Error checking admin status:', error.message);
+        setAdminStatus(false);
+      } else if (data) {
+        setAdminStatus(true);
+      } else {
+        setAdminStatus(false);
+      }
+    };
+
+    checkAdminStatus();
+  }, [id, currentUser, setAdminStatus]);
 
   const processMessages = async (data: any[]) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -406,7 +442,27 @@ const ChatroomPage: React.FC = () => {
 
   return (
     <div className="flex flex-col h-[calc(100vh-9rem)]">
-        {contextMenu.visible && (
+      {/* Chatroom Header with Hamburger Menu */}
+      <div className="flex justify-between items-center p-4 border-b bg-white relative">
+        <h1 className="text-xl font-bold">채팅방</h1>
+        <div className="relative">
+          <button onClick={() => setShowDropdown(!showDropdown)} className="p-2 rounded-full hover:bg-gray-100">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+          </button>
+          {showDropdown && (
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+              {isAdmin && (
+                <Link href={`/chat/${id}/settings`}>
+                  <a className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">채팅방 설정</a>
+                </Link>
+              )}
+              {/* Add other menu items here if needed */}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {contextMenu.visible && (
             <div style={{ top: contextMenu.y, left: contextMenu.x }} className="absolute z-50 bg-white border rounded-lg shadow-lg p-2 flex flex-col space-y-1">
                 <button onClick={() => { handleLike(contextMenu.messageId!); }} className="p-2 text-left hover:bg-gray-100 rounded">👍 좋아요</button>
                 <button onClick={() => { handleDislike(contextMenu.messageId!); }} className="p-2 text-left hover:bg-gray-100 rounded">👎 싫어요</button>
