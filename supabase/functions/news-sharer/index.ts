@@ -161,6 +161,7 @@ Deno.serve(async (req) => {
         user_id: aiUserId,
         content: messageContent,
         is_ai_curator: true,
+        curator_message_type: 'NEWS_SUMMARY',
       }));
 
       if (messagesToInsert.length > 0) {

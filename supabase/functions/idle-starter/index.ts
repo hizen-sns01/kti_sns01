@@ -131,6 +131,7 @@ Deno.serve(async (req) => {
         user_id: aiUserId,
         content: newTopic,
         is_ai_curator: true,
+        curator_message_type: 'IDLE_TALK',
       });
 
       if (insertError) {

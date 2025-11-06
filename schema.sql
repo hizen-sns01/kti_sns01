@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS public.messages (
     content text NOT NULL,
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
     is_ai_curator boolean DEFAULT false NOT NULL, -- Added for AI Curator
+    curator_message_type text, -- Added for Curator Message Type
     is_deleted boolean DEFAULT false NOT NULL, -- Added for soft delete
     updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL, -- Added for soft delete
     like_count integer DEFAULT 0 NOT NULL -- Added for like feature

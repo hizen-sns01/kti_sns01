@@ -61,6 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       user_id: aiUserId,
       content: aiResponse,
       is_ai_curator: true,
+      curator_message_type: 'QA_RESPONSE',
     });
 
     if (insertError) {

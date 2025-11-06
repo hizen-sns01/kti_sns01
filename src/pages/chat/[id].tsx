@@ -14,6 +14,7 @@ interface Message {
   content: string;
   created_at: string;
   chatroom_id: string;
+  curator_message_type?: 'IDLE_TALK' | 'NEWS_SUMMARY' | 'QA_RESPONSE';
   profiles: {
     nickname: string;
   } | null;
@@ -25,6 +26,13 @@ interface Message {
 }
 
 const MESSAGES_PER_PAGE = 20;
+const MESSAGE_SELECT_QUERY = `*,
+          profiles(nickname),
+          message_likes(count),
+          message_dislikes(count),
+          message_comments(count),
+          curator_message_type
+        `;
 
 const ChatroomPage: React.FC = () => {
   const router = useRouter();
@@ -132,12 +140,7 @@ const ChatroomPage: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('messages')
-        .select(`*,
-          profiles(nickname),
-          message_likes(count),
-          message_dislikes(count),
-          message_comments(count)
-        `)
+        .select(MESSAGE_SELECT_QUERY)
         .eq('chatroom_id', id)
         .order('created_at', { ascending: false })
         .range(0, MESSAGES_PER_PAGE - 1);
@@ -162,12 +165,7 @@ const ChatroomPage: React.FC = () => {
 
     const { data, error } = await supabase
       .from('messages')
-      .select(`*,
-        profiles(nickname),
-        message_likes(count),
-        message_dislikes(count),
-        message_comments(count)
-      `)
+      .select(MESSAGE_SELECT_QUERY)
       .eq('chatroom_id', id)
       .order('created_at', { ascending: false })
       .range(page * MESSAGES_PER_PAGE, (page + 1) * MESSAGES_PER_PAGE - 1);
