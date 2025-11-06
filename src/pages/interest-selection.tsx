@@ -50,7 +50,7 @@ const InterestSelectionPage: React.FC = () => {
       // Save interests to the profile
       const { error } = await supabase.from('profiles').upsert({ 
         id: user.id,
-        interests: selectedInterests,
+        interest_tags: selectedInterests,
         email: user.email
       }, { onConflict: 'id' });
 
