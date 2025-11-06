@@ -39,7 +39,10 @@ CREATE TABLE IF NOT EXISTS public.chatrooms (
     description text,
     interest text UNIQUE,
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-    last_message_at timestamp with time zone DEFAULT now() NOT NULL -- Added for AI Curator
+    last_message_at timestamp with time zone DEFAULT now() NOT NULL, -- Added for AI Curator
+    persona text, -- Added for Curator Persona
+    idle_threshold_minutes integer, -- Added for Idle Time Detection
+    enable_article_summary boolean DEFAULT false -- Added for Article Summary Toggle
 );
 
 CREATE TABLE IF NOT EXISTS public.messages (

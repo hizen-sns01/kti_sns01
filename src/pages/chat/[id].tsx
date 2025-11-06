@@ -413,8 +413,20 @@ const ChatroomPage: React.FC = () => {
     return <div className="p-4 text-center">로딩 중...</div>;
   }
 
+  const { isAdmin } = useChatroomAdmin(); // Get admin status from context
+
   return (
     <div className="flex flex-col h-[calc(100vh-9rem)]">
+      {isAdmin && (
+        <div className="flex justify-end p-2">
+          <button
+            onClick={() => router.push(`/chat/${id}/settings`)}
+            className="px-3 py-1 bg-gray-200 text-gray-800 rounded-md text-sm hover:bg-gray-300"
+          >
+            채팅방 설정
+          </button>
+        </div>
+      )}
         {contextMenu.visible && (
             <div style={{ top: contextMenu.y, left: contextMenu.x }} className="absolute z-50 bg-white border rounded-lg shadow-lg p-2 flex flex-col space-y-1">
                 <button onClick={() => { handleLike(contextMenu.messageId!); }} className="p-2 text-left hover:bg-gray-100 rounded">👍 좋아요</button>
