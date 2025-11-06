@@ -3,10 +3,8 @@ import { useRouter } from 'next/router';
 import { supabase } from '../../supabaseClient';
 import { User } from '@supabase/supabase-js';
 import botcall from '../../botcall.json';
-import { useChatroomAdmin } from '../../context/ChatroomAdminContext'; // Import useChatroomAdmin
+
 import MessageCommentsModal from '../../components/MessageCommentsModal';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 
 interface Message {
   id: number;
@@ -14,9 +12,9 @@ interface Message {
   content: string;
   created_at: string;
   chatroom_id: string;
-  curator_message_type?: 'IDLE_TALK' | 'NEWS_SUMMARY' | 'QA_RESPONSE';
   profiles: {
     nickname: string;
+    is_ai_curator: boolean;
   } | null;
   like_count: number;
   dislike_count: number;
@@ -25,14 +23,15 @@ interface Message {
   user_has_disliked: boolean;
 }
 
-const MESSAGES_PER_PAGE = 20;
-const MESSAGE_SELECT_QUERY = `*,
-          profiles(nickname),
-          message_likes(count),
-          message_dislikes(count),
-          message_comments(count),
-          curator_message_type
-        `;
+const formatDateSeparator = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return new Intl.DateTimeFormat('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(date);
+};
+
+const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return new Intl.DateTimeFormat('ko-KR', { hour: 'numeric', minute: 'numeric', hour12: true }).format(date);
+};
 
 const ChatroomPage: React.FC = () => {
   const router = useRouter();
@@ -43,44 +42,40 @@ const ChatroomPage: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
-  
-  // For suggestions feature
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [showNewMessageButton, setShowNewMessageButton] = useState(false);
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, messageId: null as number | null });
+
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const isInitialLoad = useRef(true);
-  const [page, setPage] = useState(1);
-
-  useLayoutEffect(() => {
-    if (isInitialLoad.current && messages.length > 0) {
-      scrollToBottom('auto');
-      isInitialLoad.current = false;
-    }
-  }, [messages]);
-  const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [showNewMessageButton, setShowNewMessageButton] = useState(false);
-  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, messageId: null as number | null });
 
+  const MESSAGES_PER_PAGE = 30;
 
-  const { setAdminStatus } = useChatroomAdmin(); // Use the context hook
-
-  const scrollToBottom = (behavior: 'smooth' | 'auto' = 'auto') => {
+  const scrollToBottom = (behavior: 'auto' | 'smooth' = 'smooth') => {
     messagesEndRef.current?.scrollIntoView({ behavior });
   };
 
-  const formatDateSeparator = (dateString: string) => {
-    const date = new Date(dateString);
-    return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
-  };
+  // Effect to save state to localStorage on unmount
+  useEffect(() => {
+    const saveState = () => {
+        if (id && messages.length > 0 && scrollContainerRef.current) {
+            localStorage.setItem(`chat_messages_${id}`, JSON.stringify(messages));
+            localStorage.setItem(`chat_scroll_position_${id}`, scrollContainerRef.current.scrollTop.toString());
+        }
+    };
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true });
-  };
+    window.addEventListener('beforeunload', saveState);
 
+    return () => {
+        saveState();
+        window.removeEventListener('beforeunload', saveState);
+    };
+  }, [id, messages]);
 
   useEffect(() => {
     const setupUser = async () => {
@@ -88,34 +83,17 @@ const ChatroomPage: React.FC = () => {
       setCurrentUser(user);
     };
     setupUser();
-  }, []);
 
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      if (!id || !currentUser) {
-        setAdminStatus(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('chatroom_ad')
-        .select('role')
-        .eq('chatroom_id', id)
-        .eq('user_id', currentUser.id)
-        .in('role', ['RA', 'CA'])
-        .single();
-
-      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
-        console.error('Error checking admin status:', error.message);
-        setAdminStatus(false);
-        return;
-      }
-
-      setAdminStatus(!!data); // If data exists, user is an admin
+    const handleClickOutside = (event: MouseEvent) => {
+        if (contextMenu.visible) {
+            setContextMenu({ visible: false, x: 0, y: 0, messageId: null });
+        }
     };
-
-    checkAdminStatus();
-  }, [id, currentUser, setAdminStatus]); // Re-run when chatroom id or user changes
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+        document.removeEventListener('click', handleClickOutside);
+    };
+  }, [contextMenu.visible]);
 
   const processMessages = async (data: any[]) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -140,7 +118,12 @@ const ChatroomPage: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('messages')
-        .select(MESSAGE_SELECT_QUERY)
+        .select(`*,
+          profiles(nickname, is_ai_curator),
+          message_likes(count),
+          message_dislikes(count),
+          message_comments(count)
+        `)
         .eq('chatroom_id', id)
         .order('created_at', { ascending: false })
         .range(0, MESSAGES_PER_PAGE - 1);
@@ -165,7 +148,12 @@ const ChatroomPage: React.FC = () => {
 
     const { data, error } = await supabase
       .from('messages')
-      .select(MESSAGE_SELECT_QUERY)
+      .select(`*,
+        profiles(nickname, is_ai_curator),
+        message_likes(count),
+        message_dislikes(count),
+        message_comments(count)
+      `)
       .eq('chatroom_id', id)
       .order('created_at', { ascending: false })
       .range(page * MESSAGES_PER_PAGE, (page + 1) * MESSAGES_PER_PAGE - 1);
@@ -199,15 +187,9 @@ const ChatroomPage: React.FC = () => {
   useEffect(() => {
     if (!id) return;
 
-    // Try to load from cache first
     const cachedMessages = localStorage.getItem(`chat_messages_${id}`);
-    const cachedScroll = localStorage.getItem(`chat_scroll_position_${id}`);
-
     if (cachedMessages) {
         setMessages(JSON.parse(cachedMessages));
-        if (cachedScroll && scrollContainerRef.current) {
-            scrollContainerRef.current.scrollTop = parseInt(cachedScroll, 10);
-        }
         setLoading(false);
     } else {
         fetchInitialMessages();
@@ -222,7 +204,7 @@ const ChatroomPage: React.FC = () => {
       const { data: newMessage, error } = await supabase
         .from('messages')
         .select(`*,
-          profiles(nickname),
+          profiles(nickname, is_ai_curator),
           message_likes(count),
           message_dislikes(count),
           message_comments(count)
@@ -251,14 +233,16 @@ const ChatroomPage: React.FC = () => {
   }, [id]);
 
   useLayoutEffect(() => {
-    // This effect is now primarily for restoring scroll from cache
     const cachedScroll = localStorage.getItem(`chat_scroll_position_${id}`);
-    if (cachedScroll && scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTop = parseInt(cachedScroll, 10);
-        // Clear cache after restoring
+    if (cachedScroll) {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTop = parseInt(cachedScroll, 10);
+        }
         localStorage.removeItem(`chat_scroll_position_${id}`);
+    } else if (!loading && page === 1 && messages.length > 0) {
+        scrollToBottom('auto');
     }
-  }, [id]);
+  }, [id, loading, page, messages.length]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -419,8 +403,6 @@ const ChatroomPage: React.FC = () => {
     return <div className="p-4 text-center">로딩 중...</div>;
   }
 
-  const { isAdmin } = useChatroomAdmin(); // Get admin status from context
-
   return (
     <div className="flex flex-col h-[calc(100vh-9rem)]">
         {contextMenu.visible && (
@@ -432,14 +414,6 @@ const ChatroomPage: React.FC = () => {
                 <button onClick={() => { handleCopy(messages.find(m => m.id === contextMenu.messageId!)?.content || ''); }} className="p-2 text-left hover:bg-gray-100 rounded">복사</button>
             </div>
         )}
-      <div className="p-2">
-        <Link href="/chat" className="flex items-center text-blue-500 hover:text-blue-700">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-          </svg>
-          <span>채팅방 목록</span>
-        </Link>
-      </div>
       <div ref={scrollContainerRef} className="flex-grow overflow-y-auto p-2 md:p-4">
         {loadingMore && <div className="text-center p-2">이전 대화 로딩 중...</div>}
         <div className="space-y-4">
@@ -455,7 +429,7 @@ const ChatroomPage: React.FC = () => {
             const showTimestamp = !isSameUserAsNext || !isSameMinuteAsNext;
 
             const isCurrentUser = message.user_id === currentUser?.id;
-            const isAiCurator = message.user_id === '4bb3e1a3-099b-4b6c-bf3a-8b60c51baa79';
+            const isAiCurator = message.profiles?.is_ai_curator === true;
             const isCommand = !isAiCurator && botcall.keywords.some(keyword => message.content.startsWith(keyword));
             const totalReactions = (message.like_count || 0) + (message.dislike_count || 0);
 
@@ -497,16 +471,9 @@ const ChatroomPage: React.FC = () => {
                             </div>
                             ) : (
                             <div className={`px-4 py-2 rounded-lg ${isCurrentUser ? 'bg-blue-500 text-white rounded-br-none' : isAiCurator ? 'bg-green-500 text-white rounded-bl-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'}`}>
-                                                                                                        {isAiCurator && <strong className='block text-xs mb-1'>AI 큐레이터</strong>}
-                                                                                                        {isAiCurator ? (
-                                                                                                                                    <div className="prose prose-sm max-w-none"> {/* Added wrapper div */}
-                                                                                                                                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                                                                                                                        {message.content}
-                                                                                                                                      </ReactMarkdown>
-                                                                                                                                    </div>
-                                                                                                        ) : (
-                                                                                                          message.content
-                                                                                                        )}                            </div>
+                                {isAiCurator && <strong className='block text-xs mb-1'>AI 큐레이터</strong>}
+                                {message.content}
+                            </div>
                             )}
                             {totalReactions > 0 && (
                                 <div className={`absolute -bottom-4 ${isCurrentUser ? 'right-2' : 'left-2'} bg-gray-200 text-gray-600 text-xs px-1.5 py-0.5 rounded-full`}>
@@ -556,7 +523,7 @@ const ChatroomPage: React.FC = () => {
             value={newMessage}
             onChange={handleInputChange}
             className="flex-grow border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder={`메시지를 입력하세요... (${botcall.keywords.join(', ')})로 질문 가능)`}
+            placeholder={`메시지를 입력하세요... (${botcall.keywords.join(', ')}로 질문 가능)`}
           />
           <button type="submit" className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300" disabled={!newMessage.trim()}>
             전송
