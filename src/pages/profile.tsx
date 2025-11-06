@@ -9,6 +9,15 @@ interface Prescription {
     created_at: string;
 }
 
+interface ActivityMetrics {
+    total_activity_time_minutes: number;
+    total_messages: number;
+    total_reactions_received: number;
+    total_shares: number;
+    rooms_created: number;
+    participants_in_rooms: number;
+}
+
 const ProfilePage: React.FC = () => {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -22,6 +31,7 @@ const ProfilePage: React.FC = () => {
   const [symptoms, setSymptoms] = useState('');
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [newPrescription, setNewPrescription] = useState('');
+  const [activityMetrics, setActivityMetrics] = useState<ActivityMetrics | null>(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -30,36 +40,28 @@ const ProfilePage: React.FC = () => {
       if (user) {
         setUser(user);
         
-        // Fetch profile data
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('nickname, interest_tags, status_symptoms, height, weight, age_group')
-          .eq('id', user.id)
-          .single();
-        
-        if (profileError) {
-          console.error('Error fetching profile:', profileError);
-        } else if (profileData) {
-          setNickname(profileData.nickname || '');
-          setInterestTags(profileData.interest_tags || []);
-          setSymptoms(profileData.status_symptoms || '');
-          setHeight(profileData.height || '');
-          setWeight(profileData.weight || '');
-          setAgeGroup(profileData.age_group || '');
+        // Fetch profile, prescriptions, and metrics in parallel
+        const [profileRes, prescriptionsRes, metricsRes] = await Promise.all([
+            supabase.from('profiles').select('nickname, interest_tags, status_symptoms, height, weight, age_group').eq('id', user.id).single(),
+            supabase.from('prescriptions').select('id, content, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
+            supabase.from('user_activity_metrics').select('*').eq('user_id', user.id).single()
+        ]);
+
+        if (profileRes.error) console.error('Error fetching profile:', profileRes.error);
+        else if (profileRes.data) {
+            setNickname(profileRes.data.nickname || '');
+            setInterestTags(profileRes.data.interest_tags || []);
+            setSymptoms(profileRes.data.status_symptoms || '');
+            setHeight(profileRes.data.height || '');
+            setWeight(profileRes.data.weight || '');
+            setAgeGroup(profileRes.data.age_group || '');
         }
 
-        // Fetch prescriptions data
-        const { data: prescriptionsData, error: prescriptionsError } = await supabase
-            .from('prescriptions')
-            .select('id, content, created_at')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
+        if (prescriptionsRes.error) console.error('Error fetching prescriptions:', prescriptionsRes.error);
+        else setPrescriptions(prescriptionsRes.data || []);
 
-        if (prescriptionsError) {
-            console.error('Error fetching prescriptions:', prescriptionsError);
-        } else {
-            setPrescriptions(prescriptionsData || []);
-        }
+        if (metricsRes.error) console.error('Error fetching metrics:', metricsRes.error);
+        else setActivityMetrics(metricsRes.data);
 
       } else {
         router.replace('/login');
@@ -90,20 +92,15 @@ const ProfilePage: React.FC = () => {
   };
 
   const handleAddPrescription = async () => {
-    if (!newPrescription.trim()) return;
+    if (!newPrescription.trim() || !user) return;
     const { error } = await supabase.rpc('add_prescription_text', { content_new: newPrescription });
 
     if (error) {
         alert('처방전 저장 중 오류가 발생했습니다: ' + error.message);
     } else {
         alert('처방전이 저장되었습니다.');
-        // Refetch prescriptions to show the new one
-        const { data: prescriptionsData, error: prescriptionsError } = await supabase
-            .from('prescriptions')
-            .select('id, content, created_at')
-            .eq('user_id', user!.id)
-            .order('created_at', { ascending: false });
-        if (prescriptionsData) setPrescriptions(prescriptionsData);
+        const { data: newPrescriptionData } = await supabase.from('prescriptions').select('id, content, created_at').eq('user_id', user.id).order('created_at', { ascending: false });
+        if(newPrescriptionData) setPrescriptions(newPrescriptionData);
         setNewPrescription('');
     }
   };
@@ -209,12 +206,12 @@ const ProfilePage: React.FC = () => {
         <div className="p-4 md:p-6 border-b">
           <h2 className="text-xl font-bold text-gray-800 mb-4">사용자 활동 지수</h2>
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="bg-gray-100 p-3 rounded-lg"><strong>총 활동 시간:</strong> <span>-</span></div>
-            <div className="bg-gray-100 p-3 rounded-lg"><strong>총 대화 횟수:</strong> <span>-</span></div>
-            <div className="bg-gray-100 p-3 rounded-lg"><strong>받은 답장/리액션:</strong> <span>-</span></div>
-            <div className="bg-gray-100 p-3 rounded-lg"><strong>메시지 공유 횟수:</strong> <span>-</span></div>
-            <div className="bg-gray-100 p-3 rounded-lg"><strong>방장:</strong> <span>-</span></div>
-            <div className="bg-gray-100 p-3 rounded-lg"><strong>방 참여자수:</strong> <span>-</span></div>
+            <div className="bg-gray-100 p-3 rounded-lg"><strong>총 활동 시간:</strong> <span>{activityMetrics?.total_activity_time_minutes || '-'} 분</span></div>
+            <div className="bg-gray-100 p-3 rounded-lg"><strong>총 대화 횟수:</strong> <span>{activityMetrics?.total_messages || '-'} 개</span></div>
+            <div className="bg-gray-100 p-3 rounded-lg"><strong>받은 리액션:</strong> <span>{activityMetrics?.total_reactions_received || '-'} 개</span></div>
+            <div className="bg-gray-100 p-3 rounded-lg"><strong>메시지 공유 횟수:</strong> <span>{activityMetrics?.total_shares || '-'} 회</span></div>
+            <div className="bg-gray-100 p-3 rounded-lg"><strong>개설한 대화방:</strong> <span>{activityMetrics?.rooms_created || '-'} 개</span></div>
+            <div className="bg-gray-100 p-3 rounded-lg"><strong>방 참여자수:</strong> <span>{activityMetrics?.participants_in_rooms || '-'} 명</span></div>
           </div>
         </div>
 
