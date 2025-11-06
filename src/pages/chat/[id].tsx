@@ -139,6 +139,7 @@ const ChatroomPage: React.FC = () => {
       if (data) {
         const processed = await processMessages(data);
         setMessages(processed.reverse());
+        setTimeout(() => scrollToBottom('auto'), 0);
       }
       await supabase.rpc('update_last_read_at', { chatroom_id_param: id });
     } catch (error: any) {
