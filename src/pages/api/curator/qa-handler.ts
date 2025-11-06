@@ -4,14 +4,14 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-async function getRealGeminiResponse(question: string, context: string): Promise<string> {
+async function getRealGeminiResponse(question: string, systemInstruction: string): Promise<string> {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY environment variable is not set.");
   }
 
   const model = genAI.getGenerativeModel({
     model: "gemini-2.5-flash-lite",
-    systemInstruction: `당신은 ${context} 주제의 채팅방을 담당하는 전문 AI 큐레이터입니다. 사용자의 질문에 대해 명확하고 간결하게 한국어로 답변해주세요.`,
+    systemInstruction: systemInstruction,
   });
 
   const result = await model.generateContent(question);
@@ -32,7 +32,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Create a Supabase client with the service role key to bypass RLS
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL || '',
       process.env.SUPABASE_SERVICE_ROLE_KEY || '',
@@ -40,7 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: chatroomData, error: chatroomError } = await supabaseAdmin
       .from('chatrooms')
-      .select('interest')
+      .select('interest, persona')
       .eq('id', chatroomId)
       .single();
 
@@ -49,8 +48,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const topicContext = chatroomData.interest || 'general';
+    const persona = chatroomData.persona;
 
-    const aiResponse = await getRealGeminiResponse(question, topicContext);
+    const systemInstruction = persona
+      ? persona
+      : `당신은 ${topicContext} 주제의 채팅방을 담당하는 전문 AI 큐레이터입니다. 사용자의 질문에 대해 명확하고 간결하게 한국어로 답변해주세요.`;
+
+    const aiResponse = await getRealGeminiResponse(question, systemInstruction);
 
     const { error: insertError } = await supabaseAdmin.from('messages').insert({
       chatroom_id: chatroomId,
