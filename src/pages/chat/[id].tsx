@@ -425,16 +425,6 @@ const ChatroomPage: React.FC = () => {
 
   return (
     <div className="flex flex-col h-[calc(100vh-9rem)]">
-      {isAdmin && (
-        <div className="flex justify-end p-2">
-          <button
-            onClick={() => router.push(`/chat/${id}/settings`)}
-            className="px-3 py-1 bg-gray-200 text-gray-800 rounded-md text-sm hover:bg-gray-300"
-          >
-            채팅방 설정
-          </button>
-        </div>
-      )}
         {contextMenu.visible && (
             <div style={{ top: contextMenu.y, left: contextMenu.x }} className="absolute z-50 bg-white border rounded-lg shadow-lg p-2 flex flex-col space-y-1">
                 <button onClick={() => { handleLike(contextMenu.messageId!); }} className="p-2 text-left hover:bg-gray-100 rounded">👍 좋아요</button>
@@ -444,6 +434,14 @@ const ChatroomPage: React.FC = () => {
                 <button onClick={() => { handleCopy(messages.find(m => m.id === contextMenu.messageId!)?.content || ''); }} className="p-2 text-left hover:bg-gray-100 rounded">복사</button>
             </div>
         )}
+      <div className="p-2">
+        <Link href="/chat" className="flex items-center text-blue-500 hover:text-blue-700">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+          </svg>
+          <span>채팅방 목록</span>
+        </Link>
+      </div>
       <div ref={scrollContainerRef} className="flex-grow overflow-y-auto p-2 md:p-4">
         {loadingMore && <div className="text-center p-2">이전 대화 로딩 중...</div>}
         <div className="space-y-4">
