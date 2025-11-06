@@ -25,12 +25,12 @@ const ChatPage: React.FC = () => {
 
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('interests')
+          .select('interest_tags')
           .eq('id', user.id)
           .single();
 
         if (profileError) throw profileError;
-        setUserInterests(profile?.interests || []);
+        setUserInterests(profile?.interest_tags || []);
 
         const { data: allChatrooms, error: chatroomsError } = await supabase
           .rpc('get_all_chatrooms_with_details');
