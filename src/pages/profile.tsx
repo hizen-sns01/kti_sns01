@@ -36,7 +36,7 @@ const ProfilePage: React.FC = () => {
 
   const fetchProfileData = async (user: User) => {
     const [profileRes, prescriptionsRes, metricsRes] = await Promise.all([
-        supabase.from('profiles').select('nickname, interest_tags, status_symptoms, height, weight, age_group').eq('id', user.id).single(),
+        supabase.from('profiles').select('nickname').eq('id', user.id).single(),
         supabase.from('prescriptions').select('id, content, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('user_activity_metrics').select('*').eq('user_id', user.id).single()
     ]);
