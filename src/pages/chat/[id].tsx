@@ -463,6 +463,8 @@ const ChatroomPage: React.FC = () => {
     return <div className="p-4 text-center">로딩 중...</div>;
   }
 
+  console.log('TEST: ChatroomPage rendered'); // Add this line
+
   return (
     <div className="flex flex-col h-[calc(100vh-9rem)]">
       {/* Chatroom Header with Hamburger Menu */}
@@ -562,6 +564,7 @@ const ChatroomPage: React.FC = () => {
                             ) : (
                             <div className={`px-4 py-2 rounded-lg ${isCurrentUser ? 'bg-blue-500 text-white rounded-br-none' : isAiCurator ? 'bg-green-500 text-white rounded-bl-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'}`}>
                                 {isAiCurator && <strong className='block text-xs mb-1'>AI 큐레이터</strong>}
+                                {console.log('Message ID:', message.id, 'isAiCurator:', isAiCurator, 'curator_message_type:', message.curator_message_type, 'Content:', message.content)} {/* 이 줄을 추가하세요 */}
                                 {isAiCurator ? (
                                   <div className="markdown-content">
                                     <ReactMarkdown>{message.content}</ReactMarkdown>
