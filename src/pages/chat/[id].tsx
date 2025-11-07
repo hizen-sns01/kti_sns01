@@ -472,7 +472,7 @@ const ChatroomPage: React.FC = () => {
             목록
           </a>
         </Link>
-        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-500 text-white py-1 px-4 rounded-full shadow-lg z-10">
+        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-500 text-white py-1 px-4 shadow-lg z-10" style={{ clipPath: 'polygon(0% 0%, 100% 0%, 100% 75%, 75% 100%, 0% 100%)' }}>
           <h1 className="text-lg font-bold">{chatroomName}</h1>
         </div>
         <div className="relative ml-auto z-20">
