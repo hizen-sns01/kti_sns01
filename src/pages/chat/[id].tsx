@@ -549,6 +549,7 @@ const ChatroomPage: React.FC = () => {
                 </div>
               </React.Fragment>
             );
+          })}
         </div>
         <div ref={messagesEndRef} />
       </div>
