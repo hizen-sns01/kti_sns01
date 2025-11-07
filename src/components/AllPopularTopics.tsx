@@ -61,7 +61,7 @@ const AllPopularTopics: React.FC = () => {
     <div className="space-y-8">
       {/* Weekly Popular Topics */}
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">주간 인기 토픽</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">실시간 토픽</h2>
         <div className="space-y-4">
           {weeklyTopics.length > 0 ? (
             weeklyTopics.map((item) => (
