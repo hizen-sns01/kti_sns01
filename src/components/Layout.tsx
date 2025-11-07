@@ -10,6 +10,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { id } = router.query; // Get chatroom ID from router query
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [hideNav, setHideNav] = useState(false); // State to control nav visibility
 
   useEffect(() => {
     const checkSession = async () => {
@@ -26,6 +27,12 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       authListener.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    // Check if current path is a chatroom page (e.g., /chat/some-id)
+    const isChatroomPage = router.pathname.startsWith('/chat/') && router.pathname.split('/').length === 3;
+    setHideNav(isChatroomPage);
+  }, [router.pathname]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -57,11 +64,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <div className="max-w-2xl mx-auto">
       
-      {router.pathname.startsWith('/chat/') && router.pathname.split('/').length === 3 ? null : (
-        <nav className="bg-white shadow-md w-full">
-          <div className="flex justify-around items-center"> 
-            {navItems.map((item) => (
-              <Link key={item.label} href={item.href}>
+      <nav className={`bg-white shadow-md w-full ${hideNav ? 'hidden' : ''}`}>
+        <div className="flex justify-around items-center"> 
+          {navItems.map((item) => (
+            <Link key={item.label} href={item.href}>
               <div className={`py-3 px-2 block text-center text-base md:text-lg font-medium cursor-pointer ${ (item.href === '/' ? router.pathname === item.href : router.pathname.startsWith(item.href)) ? 'border-b-4 border-blue-500 text-blue-500' : 'text-gray-500 hover:text-blue-500'}`}>
                 {item.label}
               </div>
