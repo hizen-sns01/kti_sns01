@@ -8,7 +8,7 @@ interface Chatroom {
   description: string;
   participant_count: number;
   is_member: boolean;
-  is_active: boolean; // Added is_active property
+  is_activate: boolean; // Changed to is_activate property
 }
 
 const ChatPage: React.FC = () => {
@@ -39,8 +39,8 @@ const ChatPage: React.FC = () => {
         if (chatroomsError) throw chatroomsError;
 
         const allChatroomsData: Chatroom[] = allChatrooms || [];
-        // Filter out chatrooms where is_active is false
-        const activeChatrooms = allChatroomsData.filter(chatroom => chatroom.is_active !== false);
+        // Filter out chatrooms where is_activate is false
+        const activeChatrooms = allChatroomsData.filter(chatroom => chatroom.is_activate !== false);
         setChatrooms(activeChatrooms);
 
       } catch (error: any) {
