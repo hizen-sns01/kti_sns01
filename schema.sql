@@ -1,7 +1,4 @@
--- WARNING: This schema is for context only and is not meant to be run.
--- Table order and constraints may not be valid for execution.
-
-CREATE TABLE public.chatroom_ad (
+CREATE TABLE IF NOT EXISTS public.chatroom_ad (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   chatroom_id uuid NOT NULL,
   user_id uuid NOT NULL,
@@ -13,7 +10,7 @@ CREATE TABLE public.chatroom_ad (
   CONSTRAINT chatroom_ad_chatroom_id_fkey FOREIGN KEY (chatroom_id) REFERENCES public.chatrooms(id),
   CONSTRAINT chatroom_ad_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );
-CREATE TABLE public.chatrooms (
+CREATE TABLE IF NOT EXISTS public.chatrooms (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   name text NOT NULL,
   description text,
@@ -28,7 +25,7 @@ CREATE TABLE public.chatrooms (
   enable_article_summary boolean DEFAULT false,
   CONSTRAINT chatrooms_pkey PRIMARY KEY (id)
 );
-CREATE TABLE public.feeds (
+CREATE TABLE IF NOT EXISTS public.feeds (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   chatroom_id uuid,
   title text NOT NULL,
@@ -37,7 +34,7 @@ CREATE TABLE public.feeds (
   CONSTRAINT feeds_pkey PRIMARY KEY (id),
   CONSTRAINT feeds_chatroom_id_fkey FOREIGN KEY (chatroom_id) REFERENCES public.chatrooms(id)
 );
-CREATE TABLE public.message_comments (
+CREATE TABLE IF NOT EXISTS public.message_comments (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   message_id bigint,
   user_id uuid,
@@ -47,7 +44,7 @@ CREATE TABLE public.message_comments (
   CONSTRAINT message_comments_message_id_fkey FOREIGN KEY (message_id) REFERENCES public.messages(id),
   CONSTRAINT message_comments_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.message_dislikes (
+CREATE TABLE IF NOT EXISTS public.message_dislikes (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   message_id bigint,
   user_id uuid,
@@ -56,7 +53,7 @@ CREATE TABLE public.message_dislikes (
   CONSTRAINT message_dislikes_message_id_fkey FOREIGN KEY (message_id) REFERENCES public.messages(id),
   CONSTRAINT message_dislikes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.message_likes (
+CREATE TABLE IF NOT EXISTS public.message_likes (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   message_id bigint NOT NULL,
   user_id uuid NOT NULL,
@@ -65,7 +62,7 @@ CREATE TABLE public.message_likes (
   CONSTRAINT message_likes_message_id_fkey FOREIGN KEY (message_id) REFERENCES public.messages(id),
   CONSTRAINT message_likes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.messages (
+CREATE TABLE IF NOT EXISTS public.messages (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   chatroom_id uuid NOT NULL,
   user_id uuid NOT NULL,
@@ -77,7 +74,7 @@ CREATE TABLE public.messages (
   CONSTRAINT messages_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT fk_user_id FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );
-CREATE TABLE public.participants (
+CREATE TABLE IF NOT EXISTS public.participants (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   chatroom_id uuid NOT NULL,
   user_id uuid NOT NULL,
@@ -86,7 +83,7 @@ CREATE TABLE public.participants (
   CONSTRAINT participants_pkey PRIMARY KEY (id),
   CONSTRAINT participants_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.post_comments (
+CREATE TABLE IF NOT EXISTS public.post_comments (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   post_id uuid,
   user_id uuid,
@@ -96,7 +93,7 @@ CREATE TABLE public.post_comments (
   CONSTRAINT post_comments_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.feeds(id),
   CONSTRAINT post_comments_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.post_dislikes (
+CREATE TABLE IF NOT EXISTS public.post_dislikes (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   post_id uuid,
   user_id uuid,
@@ -105,7 +102,7 @@ CREATE TABLE public.post_dislikes (
   CONSTRAINT post_dislikes_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.feeds(id),
   CONSTRAINT post_dislikes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.post_likes (
+CREATE TABLE IF NOT EXISTS public.post_likes (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   post_id uuid,
   user_id uuid,
@@ -114,7 +111,7 @@ CREATE TABLE public.post_likes (
   CONSTRAINT post_likes_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.feeds(id),
   CONSTRAINT post_likes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.prescriptions (
+CREATE TABLE IF NOT EXISTS public.prescriptions (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   user_id uuid NOT NULL,
   content text,
@@ -123,16 +120,19 @@ CREATE TABLE public.prescriptions (
   CONSTRAINT prescriptions_pkey PRIMARY KEY (id),
   CONSTRAINT prescriptions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.profiles (
-  id uuid NOT NULL,
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   nickname text UNIQUE,
-  interests ARRAY,
   email text,
   is_ai_curator boolean DEFAULT false,
-  CONSTRAINT profiles_pkey PRIMARY KEY (id),
-  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  interest_tags TEXT[],
+  status_symptoms TEXT,
+  height NUMERIC,
+  weight NUMERIC,
+  age_group TEXT
 );
-CREATE TABLE public.user_activity_metrics (
+CREATE TABLE IF NOT EXISTS public.user_activity_metrics (
   user_id uuid NOT NULL,
   total_activity_time_minutes bigint DEFAULT 0,
   total_messages integer DEFAULT 0,
@@ -143,3 +143,19 @@ CREATE TABLE public.user_activity_metrics (
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT user_activity_metrics_pkey PRIMARY KEY (user_id),
   CONSTRAINT user_activity_metrics_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+
+CREATE TABLE IF NOT EXISTS public.popular_topics (
+  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  topic TEXT NOT NULL,
+  summary TEXT,
+  sources TEXT[],
+  type VARCHAR(10) NOT NULL, -- 'daily' or 'weekly'
+  score FLOAT8,
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+-- RLS for popular_topics (allow public read-only access)
+ALTER TABLE public.popular_topics ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public can read popular topics" ON public.popular_topics;
+CREATE POLICY "Public can read popular topics" ON public.popular_topics FOR SELECT TO authenticated, anon USING (true);
