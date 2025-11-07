@@ -529,7 +529,14 @@ const ChatroomPage: React.FC = () => {
               <React.Fragment key={message.id}>
                 {console.log('Message ID:', message.id, 'isAiCurator:', isAiCurator, 'curator_message_type:', message.curator_message_type, 'Content:', message.content)} {/* 이 줄을 추가하세요 */}
                 {showDateSeparator && (
-          })}
+                    <div className="text-center my-4">
+                        <span className="bg-gray-200 text-gray-600 text-xs px-3 py-1 rounded-full">{formatDateSeparator(message.created_at)}</span>
+                    </div>
+                    </div>
+                  </div>
+                </div>
+              </React.Fragment>
+            );
         </div>
         <div ref={messagesEndRef} />
       </div>
