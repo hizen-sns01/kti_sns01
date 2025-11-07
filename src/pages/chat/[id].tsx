@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { supabase } from '../../supabaseClient';
 import { User } from '@supabase/supabase-js';
 import botcall from '../../botcall.json';
+import ReactMarkdown from 'react-markdown'; // Import ReactMarkdown
 
 import MessageCommentsModal from '../../components/MessageCommentsModal';
 import { useChatroomAdmin } from '../../context/ChatroomAdminContext';
@@ -14,6 +15,7 @@ interface Message {
   content: string;
   created_at: string;
   chatroom_id: string;
+  curator_message_type: 'idle' | 'news' | 'user' | null; // Added curator_message_type
   profiles: {
     nickname: string;
     is_ai_curator: boolean;
@@ -177,6 +179,7 @@ const ChatroomPage: React.FC = () => {
         .from('messages')
         .select(`*,
           profiles(nickname, is_ai_curator),
+          curator_message_type,
           message_likes(count),
           message_dislikes(count),
           message_comments(count)
@@ -207,6 +210,7 @@ const ChatroomPage: React.FC = () => {
       .from('messages')
       .select(`*,
         profiles(nickname, is_ai_curator),
+        curator_message_type,
         message_likes(count),
         message_dislikes(count),
         message_comments(count)
@@ -248,8 +252,6 @@ const ChatroomPage: React.FC = () => {
     if (cachedMessages) {
         setMessages(JSON.parse(cachedMessages));
         setLoading(false);
-    } else {
-        fetchInitialMessages();
     }
 
     const channel = supabase.channel(`chatroom:${id}`);
@@ -262,6 +264,7 @@ const ChatroomPage: React.FC = () => {
         .from('messages')
         .select(`*,
           profiles(nickname, is_ai_curator),
+          curator_message_type,
           message_likes(count),
           message_dislikes(count),
           message_comments(count)
@@ -559,7 +562,11 @@ const ChatroomPage: React.FC = () => {
                             ) : (
                             <div className={`px-4 py-2 rounded-lg ${isCurrentUser ? 'bg-blue-500 text-white rounded-br-none' : isAiCurator ? 'bg-green-500 text-white rounded-bl-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'}`}>
                                 {isAiCurator && <strong className='block text-xs mb-1'>AI 큐레이터</strong>}
-                                {message.content}
+                                {isAiCurator && message.curator_message_type !== 'user' ? (
+                                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                                ) : (
+                                  message.content
+                                )}
                             </div>
                             )}
                             {totalReactions > 0 && (
