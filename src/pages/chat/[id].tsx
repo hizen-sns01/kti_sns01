@@ -527,13 +527,25 @@ const ChatroomPage: React.FC = () => {
 
             return (
               <React.Fragment key={message.id}>
-                {console.log('Message ID:', message.id, 'isAiCurator:', isAiCurator, 'curator_message_type:', message.curator_message_type, 'Content:', message.content)} {/* 이 줄을 추가하세요 */}
                 {showDateSeparator && (
-                    <div className="text-center my-4">
-                        <span className="bg-gray-200 text-gray-600 text-xs px-3 py-1 rounded-full">{formatDateSeparator(message.created_at)}</span>
-                    </div>
-                    </div>
+                  <div className="text-center my-4">
+                    <span className="bg-gray-200 text-gray-600 text-xs px-3 py-1 rounded-full">{formatDateSeparator(message.created_at)}</span>
                   </div>
+                )}
+                <div onContextMenu={(e) => handleContextMenu(e, message.id)} className={`flex items-end ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`flex flex-col space-y-1 text-base max-w-xs mx-2 ${isCurrentUser ? 'order-1 items-end' : 'order-2 items-start'}`}>
+                    {!isCurrentUser && <span className="text-xs text-gray-500">{message.profiles?.nickname || '사용자'}</span>}
+                    <div className={`px-4 py-2 rounded-lg inline-block ${isCurrentUser ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'} ${isCommand ? 'font-mono bg-yellow-200 text-yellow-900' : ''}`}>
+                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                    </div>
+                    {(totalReactions > 0 || (message.comment_count || 0) > 0) && (
+                        <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
+                            {totalReactions > 0 && <span>👍 {totalReactions}</span>}
+                            {(message.comment_count || 0) > 0 && <span>💬 {message.comment_count}</span>}
+                        </div>
+                    )}
+                  </div>
+                  {showTimestamp && <span className={`text-xs text-gray-400 ${isCurrentUser ? 'order-2' : 'order-1'}`}>{formatTime(message.created_at)}</span>}
                 </div>
               </React.Fragment>
             );
