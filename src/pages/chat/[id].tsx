@@ -347,7 +347,7 @@ const ChatroomPage: React.FC = () => {
     const trimmedMessage = newMessage.trim();
     if (trimmedMessage === '' || !currentUser || !id) return;
 
-    const { error } = await supabase.from('messages').insert([{ chatroom_id: id, user_id: currentUser.id, content: trimmedMessage }]);
+    const { error } = await supabase.from('messages').insert([{ chatroom_id: id, user_id: currentUser.id, content: trimmedMessage, curator_message_type: 'user' }]);
     
     if (error) {
       console.error('Error sending message:', error.message);
