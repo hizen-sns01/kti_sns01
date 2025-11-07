@@ -8,6 +8,7 @@ interface Chatroom {
   description: string;
   participant_count: number;
   is_member: boolean;
+  is_active: boolean; // Added is_active property
 }
 
 const ChatPage: React.FC = () => {
@@ -38,7 +39,9 @@ const ChatPage: React.FC = () => {
         if (chatroomsError) throw chatroomsError;
 
         const allChatroomsData: Chatroom[] = allChatrooms || [];
-        setChatrooms(allChatroomsData);
+        // Filter out chatrooms where is_active is false
+        const activeChatrooms = allChatroomsData.filter(chatroom => chatroom.is_active !== false);
+        setChatrooms(activeChatrooms);
 
       } catch (error: any) {
         console.error('Error fetching data for chat page:', error.message);
