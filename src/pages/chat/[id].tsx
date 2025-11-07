@@ -464,6 +464,14 @@ const ChatroomPage: React.FC = () => {
     <div className="flex flex-col h-[calc(100vh-9rem)]">
       {/* Chatroom Header with Hamburger Menu */}
       <div className="flex justify-between items-center p-4 border-b bg-white relative">
+        <Link href="/chat">
+          <a className="text-blue-500 hover:underline flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-1">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+            목록
+          </a>
+        </Link>
         <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-500 text-white py-1 px-4 rounded-full shadow-lg z-10">
           <h1 className="text-lg font-bold">{chatroomName}</h1>
         </div>
