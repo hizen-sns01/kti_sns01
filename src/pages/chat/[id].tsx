@@ -527,66 +527,8 @@ const ChatroomPage: React.FC = () => {
 
             return (
               <React.Fragment key={message.id}>
+                {console.log('Message ID:', message.id, 'isAiCurator:', isAiCurator, 'curator_message_type:', message.curator_message_type, 'Content:', message.content)} {/* 이 줄을 추가하세요 */}
                 {showDateSeparator && (
-                    <div className="text-center my-4">
-                        <span className="bg-gray-200 text-gray-600 text-xs px-3 py-1 rounded-full">{formatDateSeparator(message.created_at)}</span>
-                    </div>
-                )}
-                <div className={`flex w-full items-end ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`flex items-end max-w-xs md:max-w-md ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                    {/* Avatar Area */}
-                    <div className="mx-2 flex shrink-0 flex-col items-center self-start text-xs text-gray-500">
-                      {!isCurrentUser && (
-                        <>
-                          {isAiCurator ? (
-                            <div className="relative h-8 w-8 rounded-full bg-green-200">
-                              <svg className="h-full w-full p-1.5 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                            </div>
-                          ) : (
-                            <div className="h-8 w-8 rounded-full bg-gray-300"></div>
-                          )}
-                          <div className="mt-1 w-12 truncate">{message.profiles?.nickname || (isAiCurator ? 'AI' : '...')}</div>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Bubble & Time Area */}
-                    <div className={`flex items-end gap-2 ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                        {/* Bubble Area */}
-                        <div onContextMenu={(e) => handleContextMenu(e, message.id)} className="group relative">
-                            {isCommand ? (
-                            <div className="bg-gray-700 text-gray-100 px-4 py-3 rounded-lg shadow-md flex items-center font-mono">
-                                <svg className="w-5 h-5 mr-3 text-yellow-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M9 3v4M7 5h4m5 3v4m-2-2h4m-7 7v4m-2-2h4" />
-                                </svg>
-                                <span>{message.content}</span>
-                            </div>
-                            ) : (
-                            <div className={`px-4 py-2 rounded-lg ${isCurrentUser ? 'bg-blue-500 text-white rounded-br-none' : isAiCurator ? 'bg-green-500 text-white rounded-bl-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'}`}>
-                                {isAiCurator && <strong className='block text-xs mb-1'>AI 큐레이터</strong>}
-                                {console.log('Message ID:', message.id, 'isAiCurator:', isAiCurator, 'curator_message_type:', message.curator_message_type, 'Content:', message.content)} {/* 이 줄을 추가하세요 */}
-                                {isAiCurator ? (
-                                  <div className="markdown-content">
-                                    <ReactMarkdown>{message.content}</ReactMarkdown>
-                                  </div>
-                                ) : (
-                                  message.content
-                                )}
-                            </div>
-                            )}
-                            {totalReactions > 0 && (
-                                <div className={`absolute -bottom-4 ${isCurrentUser ? 'right-2' : 'left-2'} bg-gray-200 text-gray-600 text-xs px-1.5 py-0.5 rounded-full`}>
-                                    <span>👍 {message.like_count}</span> <span>👎 {message.dislike_count}</span>
-                                </div>
-                            )}
-                        </div>
-                        {/* Timestamp */}
-                        {showTimestamp && <span className="text-xs text-gray-500 self-end whitespace-nowrap">{formatTime(message.created_at)}</span>}
-                    </div>
-                  </div>
-                </div>
-              </React.Fragment>
-            );
           })}
         </div>
         <div ref={messagesEndRef} />
