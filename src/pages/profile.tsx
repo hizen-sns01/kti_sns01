@@ -154,12 +154,12 @@ const ProfilePage: React.FC = () => {
                     className="flex-grow px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   />
                   <button onClick={() => setNickname('')} className="p-2 text-gray-500 hover:text-gray-700">X</button>
-                  <button onClick={handleSaveNickname} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">저장</button>
+                  <button onClick={handleSaveNickname} className="px-4 py-2 bg-sky-600 text-white rounded-md hover:bg-sky-700">저장</button>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
                   <span className="text-lg">{nickname || '닉네임을 설정해주세요.'}</span>
-                  <button onClick={() => setIsEditingNickname(true)} className="text-sm text-blue-600 hover:underline">수정</button>
+                  <button onClick={() => setIsEditingNickname(true)} className="text-sm text-sky-600 hover:underline">수정</button>
                 </div>
               )}
             </div>
@@ -167,14 +167,14 @@ const ProfilePage: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700">관심사 태그</label>
               <div className="flex flex-wrap gap-2 mt-2">
                 {interestTags.map(interest => (
-                  <span key={interest} className="flex items-center bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1.5 rounded-full">
+                  <span key={interest} className="flex items-center bg-sky-100 text-sky-800 text-sm font-medium px-3 py-1.5 rounded-full">
                     {interest}
-                    <button onClick={() => removeInterest(interest)} className="ml-2 text-blue-600 hover:text-blue-800">x</button>
+                    <button onClick={() => removeInterest(interest)} className="ml-2 text-sky-600 hover:text-sky-800">x</button>
                   </span>
                 ))}
               </div>
               <div className="mt-2 flex">
-                <input type="text" value={newInterest} onChange={(e) => setNewInterest(e.target.value)} className="flex-grow px-3 py-2 bg-white border border-gray-300 rounded-l-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="태그 추가" />
+                <input type="text" value={newInterest} onChange={(e) => setNewInterest(e.target.value)} className="flex-grow px-3 py-2 bg-white border border-gray-300 rounded-l-md focus:outline-none focus:ring-sky-500 focus:border-sky-500" placeholder="태그 추가" />
                 <button onClick={addInterest} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-r-md hover:bg-gray-300">추가</button>
               </div>
             </div>
@@ -206,7 +206,7 @@ const ProfilePage: React.FC = () => {
         </div>
 
         <div className="p-4 md:p-6 border-b">
-            <button onClick={handleSaveProfile} className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">사용자 정보 저장</button>
+            <button onClick={handleSaveProfile} className="w-full px-4 py-2 bg-sky-600 text-white rounded-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2">사용자 정보 저장</button>
         </div>
 
         <div className="p-4 md:p-6 border-b">
@@ -215,7 +215,7 @@ const ProfilePage: React.FC = () => {
                 <div>
                     <h3 className="text-lg font-semibold text-gray-700 mb-2">새 처방전 추가</h3>
                     <textarea value={newPrescription} onChange={(e) => setNewPrescription(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" rows={4} placeholder="처방받은 약에 대한 내용을 입력하세요."></textarea>
-                    <button onClick={handleAddPrescription} className="mt-2 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600">처방전 저장</button>
+                    <button onClick={handleAddPrescription} className="mt-2 px-4 py-2 bg-sky-600 text-white rounded-md hover:bg-sky-700">처방전 저장</button>
                 </div>
                 <div className="mt-4">
                     <h3 className="text-lg font-semibold text-gray-700 mb-2">저장된 처방전 목록</h3>
