@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     const { data: allChatrooms, error: chatroomsError } = await supabaseClient
       .from('chatrooms')
       .select('id, interest, last_message_at, idle_threshold_minutes')
-      .eq('is_activated', true);
+      .eq('is_activate', true);
 
     if (chatroomsError) {
       throw new Error(`Failed to fetch chatrooms: ${chatroomsError.message}`);

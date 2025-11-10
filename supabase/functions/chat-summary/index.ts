@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
       .from('chatrooms')
       .select('id, interest, persona')
       .eq('enable_article_summary', true)
-      .eq('is_activated', true);
+      .eq('is_activate', true);
 
     if (chatroomsError) {
       throw new Error(`Failed to fetch chatrooms: ${chatroomsError.message}`);
