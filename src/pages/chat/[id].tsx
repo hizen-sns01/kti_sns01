@@ -277,6 +277,11 @@ const ChatroomPage: React.FC = () => {
         return;
       }
 
+      // --- DEBUG ---
+      console.log('New message payload:', payload);
+      console.log('Fetched new message:', newMessage);
+      // --- END DEBUG ---
+
       if (newMessage) {
         const processedPayload = await processMessages([newMessage]);
         setMessages(prev => [...prev, ...processedPayload]);
