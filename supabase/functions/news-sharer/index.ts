@@ -131,7 +131,8 @@ Deno.serve(async (req) => {
 
     const { data: interestsData, error: interestsError } = await supabaseClient
       .from('chatrooms')
-      .select('interest');
+      .select('interest')
+      .eq('is_activated', true);
 
     if (interestsError) throw new Error(interestsError.message);
 
@@ -152,7 +153,8 @@ Deno.serve(async (req) => {
       const { data: roomsToPost, error: roomsError } = await supabaseClient
         .from('chatrooms')
         .select('id')
-        .eq('interest', interest);
+        .eq('interest', interest)
+        .eq('is_activated', true);
 
       if (roomsError) throw roomsError;
 
