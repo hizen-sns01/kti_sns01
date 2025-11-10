@@ -15,7 +15,7 @@ async function getIdleTopic(context: string): Promise<string> {
 
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
   
-  const prompt = `You are an AI curator in a chatroom. Your goal is to spark conversation in a room that has gone quiet. The topic of the chatroom is "${context}". Generate one single, engaging, open-ended question to get people talking again. Keep it friendly and concise.`;
+  const prompt = `당신은 채팅방의 AI큐레이터 입니다. 당신의 목적은 채팅방이 너무 조용하지 않도록 유지 하는것 입니다. 채팅방의 주제는 "${context}" 입니다. 사람들이 대화할 수 있을만한 주제를 하나 제시해 주세요. 부드럽고 편안한 말투를 사용하고, 한글로 대화해 주세요.`;
 
   const requestBody = {
     contents: [{ parts: [{ text: prompt }] }],

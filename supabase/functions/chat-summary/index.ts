@@ -3,7 +3,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 
 // Summarizes chat messages using the Gemini API.
 // The user must set GEMINI_API_KEY in their Supabase project secrets.
-async function getChatSummary(chatroomId: string, chatMessages: string): Promise<string> {
+async function getChatSummary(chatroomId: string, chatMessages: string, persona?: string): Promise<string> {
   console.log(`Generating chat summary for chatroom: ${chatroomId}`);
 
   const apiKey = Deno.env.get('GEMINI_API_KEY');
@@ -14,10 +14,13 @@ async function getChatSummary(chatroomId: string, chatMessages: string): Promise
 
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
   
-  const prompt = `다음 채팅 대화를 3줄 이내로 요약해 주세요. 중요한 키워드는 **굵게** 표시하고, 마크다운 형식으로 작성해 주세요.
----
-채팅 대화:
-${chatMessages}`;
+  let prompt = `다음 채팅 대화를 3줄 이내로 요약해 주세요. 중요한 키워드는 **굵게** 표시하고, 마크다운 형식으로 작성해 주세요.`;
+
+  if (persona) {
+    prompt += `\n\n당신은 다음 페르소나를 가지고 요약합니다: ${persona}`;
+  }
+
+  prompt += `\n---\n채팅 대화:\n${chatMessages}`;
 
   const requestBody = {
     contents: [{ parts: [{ text: prompt }] }],
@@ -68,7 +71,7 @@ Deno.serve(async (req) => {
     // Fetch all chatrooms
     const { data: chatrooms, error: chatroomsError } = await supabaseClient
       .from('chatrooms')
-      .select('id, interest')
+      .select('id, interest, persona')
       .eq('enable_article_summary', true);
 
     if (chatroomsError) {
@@ -106,7 +109,7 @@ Deno.serve(async (req) => {
       }
 
       const concatenatedMessages = messages.map(msg => msg.content).join('\n');
-      const summary = await getChatSummary(room.id, concatenatedMessages);
+      const summary = await getChatSummary(room.id, concatenatedMessages, room.persona);
 
       // Insert the summary into the messages table
       const { error: insertError } = await supabaseClient.from('messages').insert({
