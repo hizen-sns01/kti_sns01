@@ -91,6 +91,7 @@ Deno.serve(async (req) => {
         .select('content')
         .eq('chatroom_id', room.id)
         .gte('created_at', twentyFourHoursAgo.toISOString())
+        .neq('is_ai_curator', true)
         .order('created_at', { ascending: true });
 
       if (messagesError) {
