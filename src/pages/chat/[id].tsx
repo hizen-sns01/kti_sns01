@@ -538,8 +538,7 @@ const ChatroomPage: React.FC = () => {
                   </div>
                 )}
                 <div onContextMenu={(e) => handleContextMenu(e, message.id)} className={`flex items-end ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`flex flex-col space-y-1 text-base max-w-xs mx-2 ${isCurrentUser ? 'order-1 items-end' : 'order-2 items-start'}`}>
-                    {!isCurrentUser && <span className="text-xs text-gray-500">{message.profiles?.nickname || '사용자'}</span>}
+                                      <div className={`flex flex-col space-y-1 text-base max-w-xs mx-2 ${isCurrentUser ? 'order-2 items-end' : 'order-1 items-start'}`}>                    {!isCurrentUser && <span className="text-xs text-gray-500">{message.profiles?.nickname || '사용자'}</span>}
                     <div className={`px-4 py-2 rounded-lg inline-block ${isCurrentUser ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'} ${isCommand ? 'font-mono bg-yellow-200 text-yellow-900' : ''}`}>
                         <ReactMarkdown>{message.content}</ReactMarkdown>
                     </div>
@@ -550,7 +549,7 @@ const ChatroomPage: React.FC = () => {
                         </div>
                     )}
                   </div>
-                  {showTimestamp && <span className={`text-xs text-gray-400 ${isCurrentUser ? 'order-2' : 'order-1'}`}>{formatTime(message.created_at)}</span>}
+                  {showTimestamp && <span className={`text-xs text-gray-400 ${isCurrentUser ? 'order-1' : 'order-2'}`}>{formatTime(message.created_at)}</span>}
                 </div>
               </React.Fragment>
             );
