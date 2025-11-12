@@ -1,3 +1,7 @@
+-- Fix relationship between message_comments and profiles
+ALTER TABLE public.message_comments
+  ADD CONSTRAINT fk_user_id FOREIGN KEY (user_id) REFERENCES public.profiles(id);
+
 -- RLS Policies for Interactions
 
 -- Enable RLS and define policies for message_likes
@@ -44,3 +48,10 @@ CREATE POLICY "Allow users to insert their own comments" ON public.message_comme
 DROP POLICY IF EXISTS "Allow users to delete their own comments" ON public.message_comments;
 CREATE POLICY "Allow users to delete their own comments" ON public.message_comments
   FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+-- Enable RLS and define policies for chatroom_ad
+ALTER TABLE public.chatroom_ad ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow read access to all authenticated users" ON public.chatroom_ad;
+CREATE POLICY "Allow read access to all authenticated users" ON public.chatroom_ad
+  FOR SELECT TO authenticated USING (true);
