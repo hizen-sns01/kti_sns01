@@ -87,7 +87,18 @@ const ChatroomPage: React.FC = () => {
 
   useEffect(() => {
     const setupUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      // DEBUGGING: Log environment variables to check if they are loaded
+      console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+      console.log('Supabase Anon Key:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Loaded' : 'NOT LOADED');
+
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      // DEBUGGING: Log user object and error
+      console.log('Current User Object:', user);
+      if (error) {
+        console.error('Error getting user:', error);
+      }
+
       setCurrentUser(user);
     };
     setupUser();
