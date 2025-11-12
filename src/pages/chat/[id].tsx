@@ -539,6 +539,12 @@ const ChatroomPage: React.FC = () => {
             const isAiCurator = message.profiles?.is_ai_curator === true;
             const isCommand = !isAiCurator && botcall.keywords.some(keyword => message.content.startsWith(keyword));
 
+            // --- DEBUG ---
+            if (message.parent_message) {
+              console.log("Rendering a reply. Parent message data:", message.parent_message);
+            }
+            // --- END DEBUG ---
+
             return (
               <React.Fragment key={message.id}>
                 {showDateSeparator && (
