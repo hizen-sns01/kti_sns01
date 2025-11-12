@@ -556,7 +556,7 @@ const ChatroomPage: React.FC = () => {
   console.log('TEST: ChatroomPage rendered'); // Add this line
 
   return (
-    <div className="flex flex-col h-[calc(100vh-9rem)] bg-[#EDE6DF]">
+    <div className="flex flex-col h-[calc(100vh-9rem)] bg-[#F5F1EB]">
       {/* Chatroom Header with Hamburger Menu */}
       <div className="flex justify-between items-center p-4 border-b bg-white relative">
         <Link href="/chat" className="absolute left-4 top-1/2 transform -translate-y-1/2 z-30">
@@ -620,7 +620,7 @@ const ChatroomPage: React.FC = () => {
             let quoteTextClasses = 'text-sm max-h-12 overflow-hidden'; // Fix: Use max-height instead of truncate
 
             if (isAiCurator) {
-                bubbleClasses += ' bg-yellow-200 text-yellow-900 font-mono';
+                bubbleClasses += ' bg-[#F3F6FA] text-yellow-900 font-mono';
                 quoteClasses += ' border-yellow-400 bg-yellow-50';
                 quoteAuthorClasses += ' text-yellow-800';
                 quoteTextClasses += ' text-yellow-800';
