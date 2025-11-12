@@ -2,21 +2,35 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../supabaseClient';
 
-const predefinedInterests = ['오픈 AI', '기술', '테니스', '요리', '여행', '음악'];
-
 const InterestSelectionPage: React.FC = () => {
   const router = useRouter();
+  const [predefinedInterests, setPredefinedInterests] = useState<string[]>([]);
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [customInterest, setCustomInterest] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Check if user is logged in, otherwise redirect to login
   useEffect(() => {
+    const fetchInterests = async () => {
+      const { data, error } = await supabase
+        .from('common_code')
+        .select('value')
+        .eq('category', 'INTERESTS');
+
+      if (error) {
+        console.error('Error fetching interests:', error);
+        setMessage('관심사 목록을 불러오는데 실패했습니다.');
+      } else {
+        setPredefinedInterests(data.map(item => item.value));
+      }
+    };
+
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.replace('/login');
+      } else {
+        fetchInterests();
       }
     };
     checkUser();
