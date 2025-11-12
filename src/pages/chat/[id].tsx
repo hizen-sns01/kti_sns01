@@ -557,7 +557,7 @@ const ChatroomPage: React.FC = () => {
                     <div className={`px-4 py-2 rounded-lg inline-block ${isCurrentUser ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'} ${isCommand ? 'font-mono bg-yellow-200 text-yellow-900' : ''}`}>
                         {message.parent_message && (
                           <div className="p-2 mb-2 border-l-2 border-gray-400 opacity-80">
-                            <p className="text-xs font-semibold">{message.parent_message.profiles?.nickname || '사용자'}</p>
+                            <p className="text-xs font-semibold">{message.parent_message.profiles?.nickname || '이름없음'}</p>
                             <p className="text-sm truncate">{message.parent_message.content}</p>
                           </div>
                         )}
