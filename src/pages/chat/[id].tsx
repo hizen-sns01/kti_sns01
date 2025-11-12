@@ -6,38 +6,9 @@ import { User } from '@supabase/supabase-js';
 import botcall from '../../botcall.json';
 import ReactMarkdown from 'react-markdown'; // Import ReactMarkdown
 
+import { Comment, Message } from '../../types';
 import MessageCommentsModal from '../../components/MessageCommentsModal';
 import { useChatroomAdmin } from '../../context/ChatroomAdminContext';
-
-interface Comment {
-  id: string;
-  content: string;
-  created_at: string;
-  user_id: string;
-  message_id: string;
-  profiles: {
-    nickname: string;
-  } | null;
-}
-
-interface Message {
-  id: string;
-  user_id: string;
-  content: string;
-  created_at: string;
-  chatroom_id: string;
-  curator_message_type: 'idle' | 'news' | 'user' | null; // Added curator_message_type
-  profiles: {
-    nickname: string;
-    is_ai_curator: boolean;
-  } | null;
-  like_count: number;
-  dislike_count: number;
-  comment_count: number;
-  user_has_liked: boolean;
-  user_has_disliked: boolean;
-  message_comments: Comment[];
-}
 
 const formatDateSeparator = (dateStr: string) => {
     const date = new Date(dateStr);

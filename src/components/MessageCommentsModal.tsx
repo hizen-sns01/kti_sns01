@@ -1,15 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-
-interface Comment {
-  id: string;
-  content: string;
-  created_at: string;
-  message_id: string;
-  profiles: {
-    nickname: string;
-  } | null;
-}
+import { Comment } from '../types';
 
 interface MessageCommentsModalProps {
   messageId: string;
