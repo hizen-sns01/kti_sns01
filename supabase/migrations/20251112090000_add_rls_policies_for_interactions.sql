@@ -55,3 +55,10 @@ ALTER TABLE public.chatroom_ad ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow read access to all authenticated users" ON public.chatroom_ad;
 CREATE POLICY "Allow read access to all authenticated users" ON public.chatroom_ad
   FOR SELECT TO authenticated USING (true);
+
+-- Enable RLS and define policies for messages
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow read access to all authenticated users" ON public.messages;
+CREATE POLICY "Allow read access to all authenticated users" ON public.messages
+  FOR SELECT TO authenticated USING (true);
