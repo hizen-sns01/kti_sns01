@@ -291,7 +291,6 @@ const ChatroomPage: React.FC = () => {
       } else {
             setShowNewMessageButton(true);
         }
-      }
     });
 
     channel.subscribe();
