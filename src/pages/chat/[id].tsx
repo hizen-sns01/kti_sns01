@@ -542,10 +542,11 @@ const ChatroomPage: React.FC = () => {
                     <div className={`px-4 py-2 rounded-lg inline-block ${isCurrentUser ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'} ${isCommand ? 'font-mono bg-yellow-200 text-yellow-900' : ''}`}>
                         <ReactMarkdown>{message.content}</ReactMarkdown>
                     </div>
-                    {(totalReactions > 0 || (message.comment_count || 0) > 0) && (
+                    {(message.like_count > 0 || message.dislike_count > 0 || (message.comment_count || 0) > 0) && (
                         <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
-                            {totalReactions > 0 && <span>👍 {totalReactions}</span>}
-                            {(message.comment_count || 0) > 0 && <span>💬 {message.comment_count}</span>}
+                            {message.like_count > 0 && <span className="flex items-center">👍 {message.like_count}</span>}
+                            {message.dislike_count > 0 && <span className="flex items-center">👎 {message.dislike_count}</span>}
+                            {(message.comment_count || 0) > 0 && <span className="flex items-center">💬 {message.comment_count}</span>}
                         </div>
                     )}
                   </div>
