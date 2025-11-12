@@ -138,18 +138,47 @@ const ChatroomPage: React.FC = () => {
   }, [id]);
 
   const processMessages = async (data: any[]) => {
+    if (!data || data.length === 0) {
+      return [];
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
-    return Promise.all(data.map(async (item) => {
-      const { data: likeData } = await supabase.from('message_likes').select('user_id').eq('message_id', item.id).eq('user_id', user?.id).single();
-      const { data: dislikeData } = await supabase.from('message_dislikes').select('user_id').eq('message_id', item.id).eq('user_id', user?.id).single();
-      
-      return {
+    if (!user) {
+      return data.map(item => ({
         ...item,
         like_count: item.message_likes[0]?.count || 0,
         dislike_count: item.message_dislikes[0]?.count || 0,
-        user_has_liked: !!likeData,
-        user_has_disliked: !!dislikeData,
-      };
+        user_has_liked: false,
+        user_has_disliked: false,
+      }));
+    }
+
+    const messageIds = data.map(m => m.id);
+
+    const { data: likesData, error: likesError } = await supabase
+      .from('message_likes')
+      .select('message_id')
+      .eq('user_id', user.id)
+      .in('message_id', messageIds);
+
+    const { data: dislikesData, error: dislikesError } = await supabase
+      .from('message_dislikes')
+      .select('message_id')
+      .eq('user_id', user.id)
+      .in('message_id', messageIds);
+
+    if (likesError) console.error('Error fetching likes:', likesError);
+    if (dislikesError) console.error('Error fetching dislikes:', dislikesError);
+
+    const likedIds = new Set(likesData?.map(l => l.message_id) || []);
+    const dislikedIds = new Set(dislikesData?.map(d => d.message_id) || []);
+
+    return data.map(item => ({
+      ...item,
+      like_count: item.message_likes[0]?.count || 0,
+      dislike_count: item.message_dislikes[0]?.count || 0,
+      user_has_liked: likedIds.has(item.id),
+      user_has_disliked: dislikedIds.has(item.id),
     }));
   };
 
@@ -163,6 +192,7 @@ const ChatroomPage: React.FC = () => {
           *,
           profiles ( nickname, is_ai_curator ),
           message_likes ( count ),
+          message_dislikes ( count ),
           parent_message:messages!replying_to_message_id ( content, profiles ( nickname ) )
         `)
         .eq('chatroom_id', id)
