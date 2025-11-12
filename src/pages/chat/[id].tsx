@@ -193,7 +193,7 @@ const ChatroomPage: React.FC = () => {
           profiles ( nickname, is_ai_curator ),
           message_likes ( count ),
           message_dislikes ( count ),
-          parent_message:messages!replying_to_message_id ( content, profiles ( nickname ) )
+          parent_message:replying_to_message_id ( content )
         `)
         .eq('chatroom_id', id)
         .order('created_at', { ascending: false })
@@ -557,7 +557,7 @@ const ChatroomPage: React.FC = () => {
                     <div className={`px-4 py-2 rounded-lg inline-block ${isCurrentUser ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'} ${isCommand ? 'font-mono bg-yellow-200 text-yellow-900' : ''}`}>
                         {message.parent_message && (
                           <div className="p-2 mb-2 border-l-2 border-gray-400 opacity-80">
-                            <p className="text-xs font-semibold">{message.parent_message.profiles?.nickname || '이름없음'}</p>
+                            <p className="text-xs font-semibold">원본 메시지:</p>
                             <p className="text-sm truncate">{message.parent_message.content}</p>
                           </div>
                         )}
