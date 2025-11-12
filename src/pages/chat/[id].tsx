@@ -163,7 +163,7 @@ const ChatroomPage: React.FC = () => {
           *,
           profiles ( nickname, is_ai_curator ),
           message_likes ( count ),
-          parent_message:messages ( content, profiles ( nickname ) )
+          parent_message:messages!replying_to_message_id ( content, profiles ( nickname ) )
         `)
         .eq('chatroom_id', id)
         .order('created_at', { ascending: false })
@@ -193,7 +193,7 @@ const ChatroomPage: React.FC = () => {
         *,
         profiles ( nickname, is_ai_curator ),
         message_likes ( count ),
-        parent_message:messages ( content, profiles ( nickname ) )
+        parent_message:messages!replying_to_message_id ( content, profiles ( nickname ) )
       `)
       .eq('chatroom_id', id)
       .order('created_at', { ascending: false })
@@ -242,7 +242,7 @@ const ChatroomPage: React.FC = () => {
           *,
           profiles ( nickname, is_ai_curator ),
           message_likes ( count ),
-          parent_message:messages ( content, profiles ( nickname ) )
+          parent_message:messages!replying_to_message_id ( content, profiles ( nickname ) )
         `)
         .eq('id', payload.new.id)
         .single();
