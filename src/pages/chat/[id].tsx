@@ -9,6 +9,16 @@ import ReactMarkdown from 'react-markdown'; // Import ReactMarkdown
 import MessageCommentsModal from '../../components/MessageCommentsModal';
 import { useChatroomAdmin } from '../../context/ChatroomAdminContext';
 
+interface Comment {
+  id: string;
+  content: string;
+  created_at: string;
+  user_id: string;
+  profiles: {
+    nickname: string;
+  } | null;
+}
+
 interface Message {
   id: string;
   user_id: string;
@@ -25,6 +35,7 @@ interface Message {
   comment_count: number;
   user_has_liked: boolean;
   user_has_disliked: boolean;
+  message_comments: Comment[];
 }
 
 const formatDateSeparator = (dateStr: string) => {
@@ -164,7 +175,7 @@ const ChatroomPage: React.FC = () => {
         ...item,
         like_count: item.message_likes[0]?.count || 0,
         dislike_count: item.message_dislikes[0]?.count || 0,
-        comment_count: item.message_comments[0]?.count || 0,
+        comment_count: item.message_comments.length,
         user_has_liked: !!likeData,
         user_has_disliked: !!dislikeData,
       };
@@ -177,12 +188,11 @@ const ChatroomPage: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('messages')
-        .select(`*,
-          profiles(nickname, is_ai_curator),
-          curator_message_type,
-          message_likes(count),
-          message_dislikes(count),
-          message_comments(count)
+        .select(`
+          *,
+          profiles ( nickname, is_ai_curator ),
+          message_likes ( count ),
+          message_comments ( *, profiles ( nickname ) )
         `)
         .eq('chatroom_id', id)
         .order('created_at', { ascending: false })
@@ -208,12 +218,11 @@ const ChatroomPage: React.FC = () => {
 
     const { data, error } = await supabase
       .from('messages')
-      .select(`*,
-        profiles(nickname, is_ai_curator),
-        curator_message_type,
-        message_likes(count),
-        message_dislikes(count),
-        message_comments(count)
+      .select(`
+        *,
+        profiles ( nickname, is_ai_curator ),
+        message_likes ( count ),
+        message_comments ( *, profiles ( nickname ) )
       `)
       .eq('chatroom_id', id)
       .order('created_at', { ascending: false })
@@ -262,12 +271,11 @@ const ChatroomPage: React.FC = () => {
 
       const { data: newMessage, error } = await supabase
         .from('messages')
-        .select(`*,
-          profiles(nickname, is_ai_curator),
-          curator_message_type,
-          message_likes(count),
-          message_dislikes(count),
-          message_comments(count)
+        .select(`
+          *,
+          profiles ( nickname, is_ai_curator ),
+          message_likes ( count ),
+          message_comments ( *, profiles ( nickname ) )
         `)
         .eq('id', payload.new.id)
         .single();
@@ -277,20 +285,15 @@ const ChatroomPage: React.FC = () => {
         return;
       }
 
-      // --- DEBUG ---
-      console.log('New message payload:', payload);
-      console.log('Fetched new message:', newMessage);
-      // --- END DEBUG ---
-
       if (newMessage) {
         const processedPayload = await processMessages([newMessage]);
         setMessages(prev => [...prev, ...processedPayload]);
         if (isAtBottom) {
             setTimeout(() => scrollToBottom('smooth'), 0);
-        }
-      } else {
+        } else {
             setShowNewMessageButton(true);
         }
+      }
     });
 
     channel.subscribe();
@@ -439,6 +442,21 @@ const ChatroomPage: React.FC = () => {
     setShowCommentsModal(false);
   };
 
+  const handleCommentAdded = (newComment: Comment) => {
+    setMessages(prevMessages =>
+      prevMessages.map(msg => {
+        if (msg.id === newComment.message_id) {
+          return {
+            ...msg,
+            message_comments: [...msg.message_comments, newComment],
+            comment_count: msg.comment_count + 1,
+          };
+        }
+        return msg;
+      })
+    );
+  };
+
   const handleShare = (messageId: string) => {
     const url = `${window.location.origin}/chat/${id}?message=${messageId}`;
     navigator.clipboard.writeText(url)
@@ -528,7 +546,6 @@ const ChatroomPage: React.FC = () => {
             const isCurrentUser = message.user_id === currentUser?.id;
             const isAiCurator = message.profiles?.is_ai_curator === true;
             const isCommand = !isAiCurator && botcall.keywords.some(keyword => message.content.startsWith(keyword));
-            const totalReactions = (message.like_count || 0) + (message.dislike_count || 0);
 
             return (
               <React.Fragment key={message.id}>
@@ -552,6 +569,26 @@ const ChatroomPage: React.FC = () => {
                   </div>
                   {showTimestamp && <span className={`text-xs text-gray-400 ${isCurrentUser ? 'order-1' : 'order-2'}`}>{formatTime(message.created_at)}</span>}
                 </div>
+
+                {/* Render Comments */}
+                {message.message_comments && message.message_comments.length > 0 && (
+                  <div className="pl-10 pr-2">
+                    {message.message_comments.map(comment => {
+                      const isCommenterCurrentUser = comment.user_id === currentUser?.id;
+                      return (
+                        <div key={comment.id} className={`flex items-start mt-2 ${isCommenterCurrentUser ? 'justify-end' : 'justify-start'}`}>
+                          <div className="text-2xl text-gray-400 mr-2">↳</div>
+                          <div className="flex flex-col">
+                            <span className="text-xs text-gray-500">{comment.profiles?.nickname || '사용자'}</span>
+                            <div className={`px-3 py-1 mt-1 rounded-lg inline-block text-sm ${isCommenterCurrentUser ? 'bg-gray-500 text-white' : 'bg-gray-100 text-gray-700'}`}>
+                              {comment.content}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </React.Fragment>
             );
           })}
@@ -560,7 +597,11 @@ const ChatroomPage: React.FC = () => {
       </div>
 
       {showCommentsModal && selectedMessageId && (
-        <MessageCommentsModal messageId={selectedMessageId} onClose={handleCloseCommentsModal} />
+        <MessageCommentsModal
+          messageId={selectedMessageId}
+          onClose={handleCloseCommentsModal}
+          onCommentAdded={handleCommentAdded}
+        />
       )}
 
       <div className="p-2 md:p-4 bg-white border-t relative">

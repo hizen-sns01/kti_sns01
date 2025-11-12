@@ -5,6 +5,7 @@ interface Comment {
   id: string;
   content: string;
   created_at: string;
+  message_id: string;
   profiles: {
     nickname: string;
   } | null;
@@ -13,9 +14,10 @@ interface Comment {
 interface MessageCommentsModalProps {
   messageId: string;
   onClose: () => void;
+  onCommentAdded: (newComment: Comment) => void;
 }
 
-const MessageCommentsModal: React.FC<MessageCommentsModalProps> = ({ messageId, onClose }) => {
+const MessageCommentsModal: React.FC<MessageCommentsModalProps> = ({ messageId, onClose, onCommentAdded }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(true);
@@ -72,7 +74,7 @@ const MessageCommentsModal: React.FC<MessageCommentsModalProps> = ({ messageId, 
       return;
     }
 
-    setComments([...comments, data]);
+    onCommentAdded(data);
     setNewComment('');
     setSubmitting(false);
     onClose();
