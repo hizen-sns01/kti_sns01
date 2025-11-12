@@ -617,10 +617,10 @@ const ChatroomPage: React.FC = () => {
             let bubbleClasses = 'px-4 py-2 rounded-lg inline-block';
             let quoteClasses = 'p-2 mb-2 border-l-2';
             let quoteAuthorClasses = 'text-xs font-semibold';
-            let quoteTextClasses = 'text-sm truncate';
+            let quoteTextClasses = 'text-sm max-h-12 overflow-hidden'; // Fix: Use max-height instead of truncate
 
             if (isAiCurator) {
-                bubbleClasses += ' bg-yellow-200 text-yellow-900 font-mono'; // Same as command
+                bubbleClasses += ' bg-yellow-200 text-yellow-900 font-mono';
                 quoteClasses += ' border-yellow-400 bg-yellow-50';
                 quoteAuthorClasses += ' text-yellow-800';
                 quoteTextClasses += ' text-yellow-800';
