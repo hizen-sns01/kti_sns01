@@ -556,7 +556,7 @@ const ChatroomPage: React.FC = () => {
   console.log('TEST: ChatroomPage rendered'); // Add this line
 
   return (
-    <div className="flex flex-col h-[calc(100vh-9rem)]">
+    <div className="flex flex-col h-[calc(100vh-9rem)] bg-[#EDE6DF]">
       {/* Chatroom Header with Hamburger Menu */}
       <div className="flex justify-between items-center p-4 border-b bg-white relative">
         <Link href="/chat" className="absolute left-4 top-1/2 transform -translate-y-1/2 z-30">
