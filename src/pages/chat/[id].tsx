@@ -626,7 +626,7 @@ const ChatroomPage: React.FC = () => {
                 quoteTextClasses += ' text-yellow-800';
             } else if (isCurrentUser) {
                 bubbleClasses += ' bg-[#E8F5E9] text-black';
-                quoteClasses += ' bg-transparent border-l-[#40B340]';
+                quoteClasses += ' bg-[#D9FDD3] border-l-[#40B340]';
                 quoteAuthorClasses += ' text-[#555555]';
                 quoteTextClasses += ' text-[#555555]';
             } else {
