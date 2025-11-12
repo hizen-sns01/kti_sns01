@@ -14,6 +14,7 @@ interface Comment {
   content: string;
   created_at: string;
   user_id: string;
+  message_id: string;
   profiles: {
     nickname: string;
   } | null;
