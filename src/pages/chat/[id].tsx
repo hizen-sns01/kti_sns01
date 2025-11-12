@@ -29,6 +29,7 @@ const ChatroomPage: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -147,7 +148,6 @@ const ChatroomPage: React.FC = () => {
         ...item,
         like_count: item.message_likes[0]?.count || 0,
         dislike_count: item.message_dislikes[0]?.count || 0,
-        comment_count: item.message_comments.length,
         user_has_liked: !!likeData,
         user_has_disliked: !!dislikeData,
       };
@@ -164,7 +164,7 @@ const ChatroomPage: React.FC = () => {
           *,
           profiles ( nickname, is_ai_curator ),
           message_likes ( count ),
-          message_comments ( *, profiles ( nickname ) )
+          parent_message:messages ( content, profiles ( nickname ) )
         `)
         .eq('chatroom_id', id)
         .order('created_at', { ascending: false })
@@ -194,7 +194,7 @@ const ChatroomPage: React.FC = () => {
         *,
         profiles ( nickname, is_ai_curator ),
         message_likes ( count ),
-        message_comments ( *, profiles ( nickname ) )
+        parent_message:messages ( content, profiles ( nickname ) )
       `)
       .eq('chatroom_id', id)
       .order('created_at', { ascending: false })
@@ -229,11 +229,7 @@ const ChatroomPage: React.FC = () => {
   useEffect(() => {
     if (!id) return;
 
-    const cachedMessages = localStorage.getItem(`chat_messages_${id}`);
-    if (cachedMessages) {
-        setMessages(JSON.parse(cachedMessages));
-        setLoading(false);
-    }
+    fetchInitialMessages();
 
     const channel = supabase.channel(`chatroom:${id}`);
     const messageSubscription = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` }, async (payload) => {
@@ -247,7 +243,7 @@ const ChatroomPage: React.FC = () => {
           *,
           profiles ( nickname, is_ai_curator ),
           message_likes ( count ),
-          message_comments ( *, profiles ( nickname ) )
+          parent_message:messages ( content, profiles ( nickname ) )
         `)
         .eq('id', payload.new.id)
         .single();
@@ -327,7 +323,18 @@ const ChatroomPage: React.FC = () => {
     const trimmedMessage = newMessage.trim();
     if (trimmedMessage === '' || !currentUser || !id) return;
 
-    const { error } = await supabase.from('messages').insert([{ chatroom_id: id, user_id: currentUser.id, content: trimmedMessage, curator_message_type: 'user' }]);
+    const messageToInsert: any = {
+      chatroom_id: id,
+      user_id: currentUser.id,
+      content: trimmedMessage,
+      curator_message_type: 'user',
+    };
+
+    if (replyingTo) {
+      messageToInsert.replying_to_message_id = replyingTo.id;
+    }
+
+    const { error } = await supabase.from('messages').insert([messageToInsert]);
     
     if (error) {
       console.error('Error sending message:', error.message);
@@ -335,6 +342,7 @@ const ChatroomPage: React.FC = () => {
     }
 
     setNewMessage('');
+    setReplyingTo(null);
     setShowSuggestions(false);
     scrollToBottom('smooth');
   };
@@ -403,30 +411,12 @@ const ChatroomPage: React.FC = () => {
     }
   };
 
-  const handleCommentClick = (messageId: string) => {
-    setSelectedMessageId(messageId);
-    setContextMenu({ visible: false, x: 0, y: 0, messageId: null }); // Close context menu
-    setShowCommentsModal(true);
-  };
-
-  const handleCloseCommentsModal = () => {
-    setSelectedMessageId(null);
-    setShowCommentsModal(false);
-  };
-
-  const handleCommentAdded = (newComment: Comment) => {
-    setMessages(prevMessages =>
-      prevMessages.map(msg => {
-        if (msg.id === newComment.message_id) {
-          return {
-            ...msg,
-            message_comments: [...msg.message_comments, newComment],
-            comment_count: msg.comment_count + 1,
-          };
-        }
-        return msg;
-      })
-    );
+  const handleReplyClick = (messageId: string) => {
+    const messageToReply = messages.find(m => m.id === messageId);
+    if (messageToReply) {
+      setReplyingTo(messageToReply);
+    }
+    setContextMenu({ visible: false, x: 0, y: 0, messageId: null });
   };
 
   const handleShare = (messageId: string) => {
@@ -496,7 +486,7 @@ const ChatroomPage: React.FC = () => {
             <div style={{ top: contextMenu.y, left: contextMenu.x }} className="absolute z-50 bg-white border rounded-lg shadow-lg p-2 flex flex-col space-y-1">
                 <button onClick={() => { handleLike(contextMenu.messageId!); }} className="p-2 text-left hover:bg-gray-100 rounded">👍 좋아요</button>
                 <button onClick={() => { handleDislike(contextMenu.messageId!); }} className="p-2 text-left hover:bg-gray-100 rounded">👎 싫어요</button>
-                <button onClick={() => { handleCommentClick(contextMenu.messageId!); }} className="p-2 text-left hover:bg-gray-100 rounded">💬 댓글</button>
+                <button onClick={() => { handleReplyClick(contextMenu.messageId!); }} className="p-2 text-left hover:bg-gray-100 rounded">💬 답장</button>
                 <button onClick={() => { handleShare(contextMenu.messageId!); }} className="p-2 text-left hover:bg-gray-100 rounded">🔗 공유</button>
                 <button onClick={() => { handleCopy(messages.find(m => m.id === contextMenu.messageId!)?.content || ''); }} className="p-2 text-left hover:bg-gray-100 rounded">복사</button>
             </div>
@@ -529,38 +519,23 @@ const ChatroomPage: React.FC = () => {
                 <div onContextMenu={(e) => handleContextMenu(e, message.id)} className={`flex items-end ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
                                       <div className={`flex flex-col space-y-1 text-base max-w-xs mx-2 ${isCurrentUser ? 'order-2 items-end' : 'order-1 items-start'}`}>                    {!isCurrentUser && <span className="text-xs text-gray-500">{message.profiles?.nickname || '사용자'}</span>}
                     <div className={`px-4 py-2 rounded-lg inline-block ${isCurrentUser ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'} ${isCommand ? 'font-mono bg-yellow-200 text-yellow-900' : ''}`}>
+                        {message.parent_message && (
+                          <div className="p-2 mb-2 border-l-2 border-gray-400 opacity-80">
+                            <p className="text-xs font-semibold">{message.parent_message.profiles?.nickname || '사용자'}</p>
+                            <p className="text-sm truncate">{message.parent_message.content}</p>
+                          </div>
+                        )}
                         <ReactMarkdown>{message.content}</ReactMarkdown>
                     </div>
-                    {(message.like_count > 0 || message.dislike_count > 0 || (message.comment_count || 0) > 0) && (
+                    {(message.like_count > 0 || message.dislike_count > 0) && (
                         <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
                             {message.like_count > 0 && <span className="flex items-center">👍 {message.like_count}</span>}
                             {message.dislike_count > 0 && <span className="flex items-center">👎 {message.dislike_count}</span>}
-                            {(message.comment_count || 0) > 0 && <span className="flex items-center">💬 {message.comment_count}</span>}
                         </div>
                     )}
                   </div>
                   {showTimestamp && <span className={`text-xs text-gray-400 ${isCurrentUser ? 'order-1' : 'order-2'}`}>{formatTime(message.created_at)}</span>}
                 </div>
-
-                {/* Render Comments */}
-                {message.message_comments && message.message_comments.length > 0 && (
-                  <div className="pl-10 pr-2">
-                    {message.message_comments.map(comment => {
-                      const isCommenterCurrentUser = comment.user_id === currentUser?.id;
-                      return (
-                        <div key={comment.id} className={`flex items-start mt-2 ${isCommenterCurrentUser ? 'justify-end' : 'justify-start'}`}>
-                          <div className="text-2xl text-gray-400 mr-2">↳</div>
-                          <div className="flex flex-col">
-                            <span className="text-xs text-gray-500">{comment.profiles?.nickname || '사용자'}</span>
-                            <div className={`px-3 py-1 mt-1 rounded-lg inline-block text-sm ${isCommenterCurrentUser ? 'bg-gray-500 text-white' : 'bg-gray-100 text-gray-700'}`}>
-                              {comment.content}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </React.Fragment>
             );
           })}
@@ -571,12 +546,25 @@ const ChatroomPage: React.FC = () => {
       {showCommentsModal && selectedMessageId && (
         <MessageCommentsModal
           messageId={selectedMessageId}
-          onClose={handleCloseCommentsModal}
-          onCommentAdded={handleCommentAdded}
+          onClose={() => setShowCommentsModal(false)}
+          onCommentAdded={(newComment) => {
+            // This logic is now handled by the new reply feature
+          }}
         />
       )}
 
       <div className="p-2 md:p-4 bg-white border-t relative">
+        {replyingTo && (
+          <div className="p-2 bg-gray-100 border-b border-gray-200 rounded-t-lg">
+            <div className="flex justify-between items-center text-sm">
+              <p className="text-gray-600">
+                <span className="font-semibold">{replyingTo.profiles?.nickname || '사용자'}</span>님에게 답장
+              </p>
+              <button onClick={() => setReplyingTo(null)} className="font-bold text-gray-500 hover:text-gray-700">X</button>
+            </div>
+            <p className="text-xs text-gray-500 truncate mt-1">{replyingTo.content}</p>
+          </div>
+        )}
         {showNewMessageButton && (
             <button 
                 onClick={handleNewMessageButtonClick}
