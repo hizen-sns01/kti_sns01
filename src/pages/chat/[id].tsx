@@ -193,7 +193,7 @@ const ChatroomPage: React.FC = () => {
           profiles ( nickname, is_ai_curator ),
           message_likes ( count ),
           message_dislikes ( count ),
-          parent_message:replying_to_message_id ( content )
+          parent_message:replying_to_message_id ( content, profiles ( nickname ) )
         `)
         .eq('chatroom_id', id)
         .order('created_at', { ascending: false })
@@ -214,7 +214,7 @@ const ChatroomPage: React.FC = () => {
   };
 
   const fetchMoreMessages = async () => {
-    if (!id || !hasMore || loadingMore) return;
+    if (!id) return;
     setLoadingMore(true);
 
     const { data, error } = await supabase
@@ -224,7 +224,7 @@ const ChatroomPage: React.FC = () => {
         profiles ( nickname, is_ai_curator ),
         message_likes ( count ),
         message_dislikes ( count ),
-        parent_message:messages!replying_to_message_id ( content, profiles ( nickname ) )
+        parent_message:replying_to_message_id ( content, profiles ( nickname ) )
       `)
       .eq('chatroom_id', id)
       .order('created_at', { ascending: false })
@@ -255,48 +255,123 @@ const ChatroomPage: React.FC = () => {
     setLoadingMore(false);
   };
 
-  // Main effect for initialization and subscriptions
-  useEffect(() => {
-    if (!id) return;
+    // Main effect for initialization and subscriptions
 
-    fetchInitialMessages();
+    useEffect(() => {
 
-    const channel = supabase.channel(`chatroom:${id}`);
-    const messageSubscription = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` }, async (payload) => {
-      
-      const scrollContainer = scrollContainerRef.current;
-      const isAtBottom = scrollContainer ? (scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight) < 100 : true;
+      if (!id) return;
 
-      const { data: newMessage, error } = await supabase
-        .from('messages')
-        .select(`
-          *,
-          profiles ( nickname, is_ai_curator ),
-          message_likes ( count ),
-          parent_message:messages!replying_to_message_id ( content, profiles ( nickname ) )
-        `)
-        .eq('id', payload.new.id)
-        .single();
+  
 
-      if (error) {
-        console.error('Error fetching new message:', error);
-        return;
-      }
+      fetchInitialMessages();
 
-      if (newMessage) {
-        const processedPayload = await processMessages([newMessage]);
-        setMessages(prev => [...prev, ...processedPayload]);
-        if (isAtBottom) {
-            setTimeout(() => scrollToBottom('smooth'), 0);
-        } else {
-            setShowNewMessageButton(true);
+  
+
+      const channel = supabase.channel(`chatroom:${id}`);
+
+      const messageSubscription = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` }, async (payload) => {
+
+        
+
+        const scrollContainer = scrollContainerRef.current;
+
+        const isAtBottom = scrollContainer ? (scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight) < 100 : true;
+
+  
+
+        // First, fetch the new message itself
+
+        const { data: newMessage, error } = await supabase
+
+          .from('messages')
+
+          .select(`
+
+            *,
+
+            profiles ( nickname, is_ai_curator ),
+
+            message_likes ( count ),
+
+            message_dislikes ( count )
+
+          `)
+
+          .eq('id', payload.new.id)
+
+          .single();
+
+  
+
+        if (error) {
+
+          console.error('Error fetching new message:', error);
+
+          return;
+
         }
-      }
-    });
 
-    channel.subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [id]);
+  
+
+        if (newMessage) {
+
+          // If it's a reply, fetch the parent message data in a separate query to avoid race conditions
+
+          if (newMessage.replying_to_message_id) {
+
+            const { data: parentData, error: parentError } = await supabase
+
+              .from('messages')
+
+              .select('content, profiles (nickname)')
+
+              .eq('id', newMessage.replying_to_message_id)
+
+              .single();
+
+  
+
+            if (parentError) {
+
+              console.error('Error fetching parent message for realtime update:', parentError);
+
+            } else {
+
+              // Manually attach the parent message data
+
+              newMessage.parent_message = parentData;
+
+            }
+
+          }
+
+  
+
+          const processedPayload = await processMessages([newMessage]);
+
+          setMessages(prev => [...prev, ...processedPayload]);
+
+          if (isAtBottom) {
+
+              setTimeout(() => scrollToBottom('smooth'), 0);
+
+          } else {
+
+              setShowNewMessageButton(true);
+
+          }
+
+        }
+
+      });
+
+  
+
+      channel.subscribe();
+
+      return () => { supabase.removeChannel(channel); };
+
+    }, [id]);
 
   useLayoutEffect(() => {
     const cachedScroll = localStorage.getItem(`chat_scroll_position_${id}`);
@@ -557,7 +632,7 @@ const ChatroomPage: React.FC = () => {
                     <div className={`px-4 py-2 rounded-lg inline-block ${isCurrentUser ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'} ${isCommand ? 'font-mono bg-yellow-200 text-yellow-900' : ''}`}>
                         {message.parent_message && (
                           <div className="p-2 mb-2 border-l-2 border-gray-400 opacity-80">
-                            <p className="text-xs font-semibold">원본 메시지:</p>
+                            <p className="text-xs font-semibold">{message.parent_message.profiles?.nickname || '이름없음'}</p>
                             <p className="text-sm truncate">{message.parent_message.content}</p>
                           </div>
                         )}
