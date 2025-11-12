@@ -10,7 +10,7 @@ import MessageCommentsModal from '../../components/MessageCommentsModal';
 import { useChatroomAdmin } from '../../context/ChatroomAdminContext';
 
 interface Message {
-  id: number;
+  id: string;
   user_id: string;
   content: string;
   created_at: string;
@@ -45,12 +45,12 @@ const ChatroomPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showCommentsModal, setShowCommentsModal] = useState(false);
-  const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [showNewMessageButton, setShowNewMessageButton] = useState(false);
-  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, messageId: null as number | null });
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, messageId: null as string | null });
   const [showDropdown, setShowDropdown] = useState(false); // State for dropdown menu
   const [chatroomName, setChatroomName] = useState('채팅방'); // State for chatroom name
 
@@ -287,7 +287,8 @@ const ChatroomPage: React.FC = () => {
         setMessages(prev => [...prev, ...processedPayload]);
         if (isAtBottom) {
             setTimeout(() => scrollToBottom('smooth'), 0);
-        } else {
+        }
+      } else {
             setShowNewMessageButton(true);
         }
       }
@@ -364,7 +365,7 @@ const ChatroomPage: React.FC = () => {
     scrollToBottom('smooth');
   };
 
-  const handleLike = async (messageId: number) => {
+  const handleLike = async (messageId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -396,7 +397,7 @@ const ChatroomPage: React.FC = () => {
     }
   };
 
-  const handleDislike = async (messageId: number) => {
+  const handleDislike = async (messageId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -428,7 +429,7 @@ const ChatroomPage: React.FC = () => {
     }
   };
 
-  const handleCommentClick = (messageId: number) => {
+  const handleCommentClick = (messageId: string) => {
     setSelectedMessageId(messageId);
     setContextMenu({ visible: false, x: 0, y: 0, messageId: null }); // Close context menu
     setShowCommentsModal(true);
@@ -439,7 +440,7 @@ const ChatroomPage: React.FC = () => {
     setShowCommentsModal(false);
   };
 
-  const handleShare = (messageId: number) => {
+  const handleShare = (messageId: string) => {
     const url = `${window.location.origin}/chat/${id}?message=${messageId}`;
     navigator.clipboard.writeText(url)
       .then(() => alert('메시지 링크가 클립보드에 복사되었습니다.'))
@@ -454,7 +455,7 @@ const ChatroomPage: React.FC = () => {
     setContextMenu({ visible: false, x: 0, y: 0, messageId: null }); // Close context menu
   };
 
-  const handleContextMenu = (e: React.MouseEvent, messageId: number) => {
+  const handleContextMenu = (e: React.MouseEvent, messageId: string) => {
     e.preventDefault();
     setContextMenu({ visible: true, x: e.pageX, y: e.pageY, messageId });
   };

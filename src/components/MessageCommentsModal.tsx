@@ -11,7 +11,7 @@ interface Comment {
 }
 
 interface MessageCommentsModalProps {
-  messageId: number;
+  messageId: string;
   onClose: () => void;
 }
 
