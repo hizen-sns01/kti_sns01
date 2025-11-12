@@ -612,13 +612,30 @@ const ChatroomPage: React.FC = () => {
 
             const isCurrentUser = message.user_id === currentUser?.id;
             const isAiCurator = message.profiles?.is_ai_curator === true;
-            const isCommand = !isAiCurator && botcall.keywords.some(keyword => message.content.startsWith(keyword));
+            
+            // --- Style Definitions ---
+            let bubbleClasses = 'px-4 py-2 rounded-lg inline-block';
+            let quoteClasses = 'p-2 mb-2 border-l-2';
+            let quoteAuthorClasses = 'text-xs font-semibold';
+            let quoteTextClasses = 'text-sm truncate';
 
-            // --- DEBUG ---
-            if (message.parent_message) {
-              console.log("Rendering a reply. Parent message data:", message.parent_message);
+            if (isAiCurator) {
+                bubbleClasses += ' bg-yellow-200 text-yellow-900 font-mono'; // Same as command
+                quoteClasses += ' border-yellow-400 bg-yellow-50';
+                quoteAuthorClasses += ' text-yellow-800';
+                quoteTextClasses += ' text-yellow-800';
+            } else if (isCurrentUser) {
+                bubbleClasses += ' bg-[#E8F5E9] text-black';
+                quoteClasses += ' bg-transparent border-l-[#40B340]';
+                quoteAuthorClasses += ' text-[#555555]';
+                quoteTextClasses += ' text-[#555555]';
+            } else {
+                bubbleClasses += ' bg-white text-black shadow-sm';
+                quoteClasses += ' bg-[#F1F5F9] border-l-[#0088CC]';
+                quoteAuthorClasses += ' text-black';
+                quoteTextClasses += ' text-black';
             }
-            // --- END DEBUG ---
+            // --- End Style Definitions ---
 
             return (
               <React.Fragment key={message.id}>
@@ -628,12 +645,13 @@ const ChatroomPage: React.FC = () => {
                   </div>
                 )}
                 <div onContextMenu={(e) => handleContextMenu(e, message.id)} className={`flex items-end ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
-                                      <div className={`flex flex-col space-y-1 text-base max-w-xs mx-2 ${isCurrentUser ? 'order-2 items-end' : 'order-1 items-start'}`}>                    {!isCurrentUser && <span className="text-xs text-gray-500">{message.profiles?.nickname || '사용자'}</span>}
-                    <div className={`px-4 py-2 rounded-lg inline-block ${isCurrentUser ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'} ${isCommand ? 'font-mono bg-yellow-200 text-yellow-900' : ''}`}>
+                  <div className={`flex flex-col space-y-1 text-base w-full max-w-[80%] mx-2 ${isCurrentUser ? 'order-2 items-end' : 'order-1 items-start'}`}>
+                    {!isCurrentUser && <span className="text-xs text-gray-500 mb-1">{message.profiles?.nickname || '사용자'}</span>}
+                    <div className={bubbleClasses}>
                         {message.parent_message && (
-                          <div className="p-2 mb-2 border-l-2 border-gray-400 opacity-80">
-                            <p className="text-xs font-semibold">{message.parent_message.profiles?.nickname || '이름없음'}</p>
-                            <p className="text-sm truncate">{message.parent_message.content}</p>
+                          <div className={quoteClasses}>
+                            <p className={quoteAuthorClasses}>{message.parent_message.profiles?.nickname || '이름없음'}</p>
+                            <p className={quoteTextClasses}>{message.parent_message.content}</p>
                           </div>
                         )}
                         <ReactMarkdown>{message.content}</ReactMarkdown>
