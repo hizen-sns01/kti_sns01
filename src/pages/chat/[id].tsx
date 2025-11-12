@@ -102,13 +102,12 @@ const ChatroomPage: React.FC = () => {
         .eq('chatroom_id', id)
         .eq('user_id', currentUser.id)
         .eq('role', 'RA')
-        .eq('is_active', true)
-        .single();
+        .eq('is_active', true); // Removed .single()
       
-      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+      if (error) {
         console.error('Error checking admin status:', error.message);
         setAdminStatus(false);
-      } else if (data) {
+      } else if (data && data.length > 0) { // Check if data array is not empty
         setAdminStatus(true);
       } else {
         setAdminStatus(false);
