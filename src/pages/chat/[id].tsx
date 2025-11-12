@@ -146,8 +146,8 @@ const ChatroomPage: React.FC = () => {
     if (!user) {
       return data.map(item => ({
         ...item,
-        like_count: item.message_likes[0]?.count || 0,
-        dislike_count: item.message_dislikes[0]?.count || 0,
+        like_count: item.message_likes?.[0]?.count || 0,
+        dislike_count: item.message_dislikes?.[0]?.count || 0,
         user_has_liked: false,
         user_has_disliked: false,
       }));
@@ -175,8 +175,8 @@ const ChatroomPage: React.FC = () => {
 
     return data.map(item => ({
       ...item,
-      like_count: item.message_likes[0]?.count || 0,
-      dislike_count: item.message_dislikes[0]?.count || 0,
+      like_count: item.message_likes?.[0]?.count || 0,
+      dislike_count: item.message_dislikes?.[0]?.count || 0,
       user_has_liked: likedIds.has(item.id),
       user_has_disliked: dislikedIds.has(item.id),
     }));
@@ -223,6 +223,7 @@ const ChatroomPage: React.FC = () => {
         *,
         profiles ( nickname, is_ai_curator ),
         message_likes ( count ),
+        message_dislikes ( count ),
         parent_message:messages!replying_to_message_id ( content, profiles ( nickname ) )
       `)
       .eq('chatroom_id', id)
@@ -281,10 +282,6 @@ const ChatroomPage: React.FC = () => {
         console.error('Error fetching new message:', error);
         return;
       }
-
-      // --- DEBUG ---
-      console.log("Realtime new message received:", newMessage);
-      // --- END DEBUG ---
 
       if (newMessage) {
         const processedPayload = await processMessages([newMessage]);
