@@ -37,12 +37,16 @@ const ChatroomPage: React.FC = () => {
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, messageId: null as string | null });
   const [showDropdown, setShowDropdown] = useState(false); // State for dropdown menu
   const [chatroomName, setChatroomName] = useState('채팅방'); // State for chatroom name
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
 
   const { isAdmin, setAdminStatus } = useChatroomAdmin(); // Use chatroom admin context
 
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -423,33 +427,73 @@ const ChatroomPage: React.FC = () => {
     inputRef.current?.focus();
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeSelectedImage = () => {
+    setSelectedImage(null);
+    setPreviewUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentUser || !id || typeof id !== 'string') return;
+
     const trimmedMessage = newMessage.trim();
-    if (trimmedMessage === '' || !currentUser || !id) return;
-
-    const messageToInsert: any = {
-      chatroom_id: id,
-      user_id: currentUser.id,
-      content: trimmedMessage,
-      curator_message_type: 'user',
-    };
-
-    if (replyingTo) {
-      messageToInsert.replying_to_message_id = replyingTo.id;
-    }
-
-    const { error } = await supabase.from('messages').insert([messageToInsert]);
-    
-    if (error) {
-      console.error('Error sending message:', error.message);
+    if (trimmedMessage === '' && !selectedImage) {
       return;
     }
 
-    setNewMessage('');
-    setReplyingTo(null);
-    setShowSuggestions(false);
-    scrollToBottom('smooth');
+    setIsSending(true);
+
+    try {
+      let imageUrl: string | null = null;
+      if (selectedImage) {
+        const { uploadImage } = await import('../../supabaseClient');
+        imageUrl = await uploadImage(selectedImage, currentUser.id);
+      }
+
+      const messageToInsert: Partial<Message> = {
+        chatroom_id: id,
+        user_id: currentUser.id,
+        content: trimmedMessage,
+        image_url: imageUrl,
+        curator_message_type: 'user',
+      };
+
+      if (replyingTo) {
+        messageToInsert.replying_to_message_id = replyingTo.id;
+      }
+
+      const { error } = await supabase.from('messages').insert([messageToInsert]);
+
+      if (error) {
+        throw error;
+      }
+
+      setNewMessage('');
+      setReplyingTo(null);
+      setShowSuggestions(false);
+      removeSelectedImage();
+      // scrollToBottom is handled by the realtime subscription now
+    } catch (error: any) {
+      console.error('Error sending message:', error.message);
+      alert('메시지 전송에 실패했습니다.');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleLike = async (messageId: string) => {
@@ -654,7 +698,14 @@ const ChatroomPage: React.FC = () => {
                             <p className={quoteTextClasses}>{message.parent_message.content}</p>
                           </div>
                         )}
-                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                        {message.image_url && (
+                          <img
+                            src={message.image_url}
+                            alt="전송된 이미지"
+                            className="max-w-full h-auto rounded-md my-2"
+                          />
+                        )}
+                        {message.content && <ReactMarkdown>{message.content}</ReactMarkdown>}
                     </div>
                     {(message.like_count > 0 || message.dislike_count > 0) && (
                         <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
@@ -683,6 +734,22 @@ const ChatroomPage: React.FC = () => {
       )}
 
       <div className="p-2 md:p-4 bg-white border-t relative">
+        {previewUrl && (
+          <div className="p-2 bg-gray-100 border-b border-gray-200">
+            <div className="relative inline-block">
+              <img src={previewUrl} alt="Preview" className="h-20 w-20 object-cover rounded-md" />
+              <button
+                onClick={removeSelectedImage}
+                className="absolute top-0 right-0 -mt-2 -mr-2 bg-gray-700 text-white rounded-full p-1"
+                aria-label="Remove image"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
         {replyingTo && (
           <div className="p-2 bg-gray-100 border-b border-gray-200 rounded-t-lg">
             <div className="flex justify-between items-center text-sm">
@@ -713,16 +780,36 @@ const ChatroomPage: React.FC = () => {
           </div>
         )}
         <form onSubmit={handleSendMessage} className="flex items-center">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="p-2 text-gray-500 hover:text-gray-700 rounded-full"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+            </svg>
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            accept="image/*"
+            className="hidden"
+          />
           <input
             ref={inputRef}
             type="text"
             value={newMessage}
             onChange={handleInputChange}
-            className="flex-grow border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-grow border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 mx-2"
             placeholder={`메시지를 입력하세요... (${botcall.keywords.join(', ')}로 질문 가능)`}
           />
-          <button type="submit" className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300" disabled={!newMessage.trim()}>
-            전송
+          <button
+            type="submit"
+            className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300"
+            disabled={(!newMessage.trim() && !selectedImage) || isSending}
+          >
+            {isSending ? '전송 중...' : '전송'}
           </button>
         </form>
       </div>

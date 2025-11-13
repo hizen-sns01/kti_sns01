@@ -15,6 +15,7 @@ export interface Message {
   content: string;
   created_at: string;
   chatroom_id: string;
+  image_url?: string | null;
   replying_to_message_id: string | null;
   parent_message: {
     content: string;
