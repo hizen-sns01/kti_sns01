@@ -6,7 +6,9 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const uploadImage = async (file: File, userId: string) => {
-  const filePath = `public/${userId}/${Date.now()}_${file.name}`;
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Math.random()}.${fileExt}`;
+  const filePath = `public/${userId}/${fileName}`;
   
   const { error: uploadError } = await supabase.storage
     .from('chat_images')
