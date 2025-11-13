@@ -7,7 +7,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const uploadImage = async (file: File, userId: string) => {
   const fileExt = file.name.split('.').pop();
-  const fileName = `${Math.random()}.${fileExt}`;
+  const fileName = `${crypto.randomUUID()}.${fileExt}`;
   const filePath = `public/${userId}/${fileName}`;
   
   const { error: uploadError } = await supabase.storage
