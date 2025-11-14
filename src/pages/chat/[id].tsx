@@ -150,8 +150,8 @@ const ChatroomPage = () => {
       return [];
     }
 
-    const { data: { user: authUser } } = await supabase.auth.getUser(); // Rename to authUser to avoid conflict
-    if (!authUser) {
+    // useUserProfile 훅에서 가져온 user를 직접 사용합니다.
+    if (!user) {
       return data.map(item => ({
         ...item,
         like_count: item.message_likes?.[0]?.count || 0,
@@ -166,13 +166,13 @@ const ChatroomPage = () => {
     const { data: likesData, error: likesError } = await supabase
       .from('message_likes')
       .select('message_id')
-      .eq('user_id', authUser.id)
+      .eq('user_id', user.id) // user.id 사용
       .in('message_id', messageIds);
 
     const { data: dislikesData, error: dislikesError } = await supabase
       .from('message_dislikes')
       .select('message_id')
-      .eq('user_id', authUser.id)
+      .eq('user_id', user.id) // user.id 사용
       .in('message_id', messageIds);
 
     if (likesError) console.error('Error fetching likes:', likesError);
@@ -463,7 +463,6 @@ const ChatroomPage = () => {
     setIsSending(true);
 
     try {
-    try {
       // Handle /ask command separately
       if (trimmedMessage.startsWith('/ask')) {
         const question = trimmedMessage.substring(4).trim();
@@ -471,7 +470,7 @@ const ChatroomPage = () => {
           const response = await fetch('/api/curator/qa-handler', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON_stringify({ question, chatroomId: id }),
+            body: JSON.stringify({ question, chatroomId: id }),
           });
 
           if (!response.ok) {
@@ -511,6 +510,7 @@ const ChatroomPage = () => {
       setReplyingTo(null);
       setShowSuggestions(false);
       removeSelectedImage();
+      // scrollToBottom is handled by the realtime subscription now
     } catch (error: any) {
       console.error('Error sending message:', error.message);
       alert('메시지 전송에 실패했습니다.');
