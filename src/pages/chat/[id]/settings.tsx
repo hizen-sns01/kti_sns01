@@ -76,9 +76,24 @@ const ChatroomSettingsPage: React.FC = () => {
     }
   };
 
+  const validateIdleThreshold = () => {
+    if (!isIdleDetectionEnabled) return true;
+
+    const value = idleThresholdMinutes === '' ? 0 : idleThresholdMinutes;
+    if (value < 60 || value > 10080) {
+      alert('유휴 시간은 60분 이상, 10080분(1주일) 이하로 설정해야 합니다.');
+      return false;
+    }
+    return true;
+  };
+
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id || !isAdmin || saving) return;
+
+    if (!validateIdleThreshold()) {
+      return; // Stop submission if validation fails
+    }
 
     setSaving(true);
 
@@ -181,9 +196,11 @@ const ChatroomSettingsPage: React.FC = () => {
               id="idleThresholdMinutes"
               value={isIdleDetectionEnabled ? idleThresholdMinutes : 0}
               onChange={(e) => setIdleThresholdMinutes(e.target.value === '' ? '' : Number(e.target.value))}
+              onBlur={validateIdleThreshold}
               className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:bg-gray-100"
               disabled={!isIdleDetectionEnabled || saving}
-              min="0"
+              min="60"
+              max="10080"
             />
           </div>
         </div>
