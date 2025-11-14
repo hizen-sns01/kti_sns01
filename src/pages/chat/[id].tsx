@@ -463,6 +463,7 @@ const ChatroomPage: React.FC = () => {
     setIsSending(true);
 
     try {
+<<<<<<< HEAD
       let imageUrl: string | null = null;
       if (selectedImage) {
         const { uploadImage } = await import('../../supabaseClient');
@@ -476,22 +477,55 @@ const ChatroomPage: React.FC = () => {
         image_url: imageUrl,
         curator_message_type: 'user',
       };
+=======
+      // Handle /ask command separately
+      if (trimmedMessage.startsWith('/ask')) {
+        const question = trimmedMessage.substring(4).trim();
+        if (question) {
+          const response = await fetch('/api/curator/qa-handler', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question, chatroomId: id }),
+          });
 
-      if (replyingTo) {
-        messageToInsert.replying_to_message_id = replyingTo.id;
-      }
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'AI 응답을 가져오는데 실패했습니다.');
+          }
+        }
+      } else {
+        // Regular message sending logic
+        let imageUrl: string | null = null;
+        if (selectedImage) {
+          const { uploadImage } = await import('../../supabaseClient');
+          imageUrl = await uploadImage(selectedImage, currentUser.id);
+        }
+>>>>>>> 0c7cb204bea17a1321637ad11dfbf30bd9237933
 
-      const { error } = await supabase.from('messages').insert([messageToInsert]);
+        const messageToInsert: Partial<Message> = {
+          chatroom_id: id,
+          user_id: currentUser.id,
+          content: trimmedMessage,
+          image_url: imageUrl,
+          is_ai_curator: false, // Fix for the 400 Bad Request error
+          curator_message_type: 'user',
+        };
 
-      if (error) {
-        throw error;
+        if (replyingTo) {
+          messageToInsert.replying_to_message_id = replyingTo.id;
+        }
+
+        const { error } = await supabase.from('messages').insert([messageToInsert]);
+
+        if (error) {
+          throw error;
+        }
       }
 
       setNewMessage('');
       setReplyingTo(null);
       setShowSuggestions(false);
       removeSelectedImage();
-      // scrollToBottom is handled by the realtime subscription now
     } catch (error: any) {
       console.error('Error sending message:', error.message);
       alert('메시지 전송에 실패했습니다.');
