@@ -21,7 +21,7 @@ const formatTime = (dateStr: string) => {
     return new Intl.DateTimeFormat('ko-KR', { hour: 'numeric', minute: 'numeric', hour12: true }).format(date);
 };
 
-const ChatroomPage: React.FC = () => {
+const ChatroomPage = () => {
   const router = useRouter();
   const { id } = router.query;
   const { user, profile, loading: profileLoading } = useUserProfile();
