@@ -20,47 +20,103 @@ interface Topic {
   message_id?: number;
 }
 
+import { useUserProfile } from '../hooks/useUserProfile';
+
+// --- Interfaces ---
+interface Comment {
+...
 // --- CommentList Component ---
 const CommentList = ({ messageId }: { messageId: number }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [newComment, setNewComment] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user } = useUserProfile(); // 현재 사용자 정보를 가져오기 위해 훅 사용
+
+  const fetchComments = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('message_comments')
+      .select('id, content, created_at, profiles(nickname)')
+      .eq('message_id', messageId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching comments:', error);
+    } else if (data) {
+      const formattedComments = data.map(comment => ({
+        ...comment,
+        profiles: Array.isArray(comment.profiles) ? comment.profiles[0] : comment.profiles,
+      }));
+      setComments(formattedComments as Comment[]);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchComments = async () => {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('message_comments')
-        .select('id, content, created_at, profiles(nickname)')
-        .eq('message_id', messageId)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching comments:', error);
-      } else if (data) {
-        // 데이터를 Comment[] 타입에 맞게 재구성
-        const formattedComments = data.map(comment => ({
-          ...comment,
-          profiles: Array.isArray(comment.profiles) ? comment.profiles[0] : comment.profiles,
-        }));
-        setComments(formattedComments as Comment[]);
-      }
-      setLoading(false);
-    };
-
     fetchComments();
   }, [messageId]);
 
+  const handleCommentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim() || !user) return;
+
+    setIsSubmitting(true);
+    const { error } = await supabase
+      .from('message_comments')
+      .insert({
+        message_id: messageId,
+        user_id: user.id,
+        content: newComment.trim(),
+      });
+
+    if (error) {
+      console.error('Error posting comment:', error);
+      alert('댓글 등록에 실패했습니다.');
+    } else {
+      setNewComment('');
+      await fetchComments(); // 댓글 등록 후 목록 새로고침
+    }
+    setIsSubmitting(false);
+  };
+
   if (loading) return <div className="text-sm text-gray-500 p-2">댓글을 불러오는 중...</div>;
-  if (comments.length === 0) return <div className="text-sm text-gray-500 p-2">아직 댓글이 없습니다.</div>;
 
   return (
-    <div className="space-y-2 mt-3 pt-3 border-t">
-      {comments.map(comment => (
-        <div key={comment.id} className="text-sm">
-          <span className="font-semibold text-gray-700">{comment.profiles?.nickname || '익명'}</span>
-          <p className="text-gray-600 ml-2">{comment.content}</p>
-        </div>
-      ))}
+    <div className="mt-3 pt-3 border-t">
+      {/* 댓글 목록 */}
+      <div className="space-y-2">
+        {comments.length > 0 ? (
+          comments.map(comment => (
+            <div key={comment.id} className="text-sm">
+              <span className="font-semibold text-gray-700">{comment.profiles?.nickname || '익명'}</span>
+              <p className="text-gray-600 ml-2">{comment.content}</p>
+            </div>
+          ))
+        ) : (
+          <div className="text-sm text-gray-500 p-2">아직 댓글이 없습니다.</div>
+        )}
+      </div>
+
+      {/* 댓글 입력 폼 */}
+      {user && (
+        <form onSubmit={handleCommentSubmit} className="mt-4 flex items-center space-x-2">
+          <input
+            type="text"
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            className="flex-grow border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="댓글을 입력하세요..."
+          />
+          <button
+            type="submit"
+            className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 disabled:bg-blue-300"
+            disabled={isSubmitting || !newComment.trim()}
+          >
+            {isSubmitting ? '등록 중...' : '등록'}
+          </button>
+        </form>
+      )}
     </div>
   );
 };
