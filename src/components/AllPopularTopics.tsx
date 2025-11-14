@@ -36,8 +36,13 @@ const CommentList = ({ messageId }: { messageId: number }) => {
 
       if (error) {
         console.error('Error fetching comments:', error);
-      } else {
-        setComments(data as Comment[]);
+      } else if (data) {
+        // 데이터를 Comment[] 타입에 맞게 재구성
+        const formattedComments = data.map(comment => ({
+          ...comment,
+          profiles: Array.isArray(comment.profiles) ? comment.profiles[0] : comment.profiles,
+        }));
+        setComments(formattedComments as Comment[]);
       }
       setLoading(false);
     };
