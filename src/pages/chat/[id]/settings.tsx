@@ -63,31 +63,42 @@ const ChatroomSettingsPage: React.FC = () => {
     setSaving(false);
   }, [id, isAdmin]);
 
-  const handleIdleDetectionToggle = async () => {
+  const handleIdleDetectionToggle = () => {
     const newEnabledState = !isIdleDetectionEnabled;
     setIsIdleDetectionEnabled(newEnabledState);
 
     if (newEnabledState) {
-      // Turning ON
-      const newThreshold = 15; // Default value
-      setIdleThresholdMinutes(newThreshold);
-      await handleSave({ idle_threshold_minutes: newThreshold });
+      // Turning ON: Set default to 1440 minutes (24 hours)
+      setIdleThresholdMinutes(1440);
     } else {
-      // Turning OFF
+      // Turning OFF: Display 0, actual save will happen on form submit
       setIdleThresholdMinutes(0);
-      await handleSave({ idle_threshold_minutes: 0 });
     }
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await handleSave({
-      name: chatroomName,
-      persona: curatorPersona,
-      idle_threshold_minutes: isIdleDetectionEnabled ? (idleThresholdMinutes === '' ? 0 : idleThresholdMinutes) : 0,
-      enable_article_summary: enableArticleSummary,
-    });
-    alert('채팅방 설정이 성공적으로 업데이트되었습니다.');
+    if (!id || !isAdmin || saving) return; // Only admin can save
+
+    setSaving(true);
+    const { error } = await supabase
+      .from('chatrooms')
+      .update({
+        name: chatroomName,
+        persona: curatorPersona,
+        // If idle detection is enabled, use the current value, otherwise set to 0
+        idle_threshold_minutes: isIdleDetectionEnabled ? (idleThresholdMinutes === '' ? 0 : idleThresholdMinutes) : 0,
+        enable_article_summary: enableArticleSummary,
+      })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error updating chatroom settings:', error.message);
+      alert('채팅방 설정 업데이트 실패: ' + error.message);
+    } else {
+      alert('채팅방 설정이 성공적으로 업데이트되었습니다.');
+    }
+    setSaving(false);
   };
 
   if (loading) {
@@ -164,7 +175,7 @@ const ChatroomSettingsPage: React.FC = () => {
               onChange={(e) => setIdleThresholdMinutes(e.target.value === '' ? '' : Number(e.target.value))}
               className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:bg-gray-100"
               disabled={!isIdleDetectionEnabled || saving}
-              min="1"
+              min="0"
             />
           </div>
         </div>
