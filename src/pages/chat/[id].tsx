@@ -627,8 +627,14 @@ const ChatroomPage: React.FC = () => {
     setShowNewMessageButton(false);
   };
 
-  if (loading) {
+  if (loading || profileLoading) { // Check both loading states
     return <div className="p-4 text-center">로딩 중...</div>;
+  }
+
+  // If user is not logged in or profile is not created yet (and not loading anymore), show nothing or a message
+  if (!user || !profile) {
+    // The redirect in useEffect will handle this, but as a fallback:
+    return null; // 명시적으로 아무것도 렌더링하지 않음을 알립니다。
   }
 
   console.log('TEST: ChatroomPage rendered'); // Add this line
