@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import MessageCommentsModal from './MessageCommentsModal'; // Import MessageCommentsModal
-import Link from 'next/link'; // Import Link for navigation
+import Link from 'next/link';
+
+// --- Interfaces ---
+interface Comment {
+  id: number;
+  content: string;
+  created_at: string;
+  profiles: { nickname: string } | null;
+}
 
 interface Topic {
   id: number;
@@ -9,28 +16,62 @@ interface Topic {
   sources: string[];
   summary: string;
   type: 'weekly' | 'daily';
-  chatroom_id?: string; // Add chatroom_id
-  message_id?: number; // Add message_id
+  chatroom_id?: string;
+  message_id?: number;
 }
 
-const TopicCard = ({ topic, sources, summary, chatroom_id, message_id }: Topic) => {
-  const [showCommentsModal, setShowCommentsModal] = useState(false);
+// --- CommentList Component ---
+const CommentList = ({ messageId }: { messageId: number }) => {
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchComments = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('message_comments')
+        .select('id, content, created_at, profiles(nickname)')
+        .eq('message_id', messageId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching comments:', error);
+      } else {
+        setComments(data as Comment[]);
+      }
+      setLoading(false);
+    };
+
+    fetchComments();
+  }, [messageId]);
+
+  if (loading) return <div className="text-sm text-gray-500 p-2">댓글을 불러오는 중...</div>;
+  if (comments.length === 0) return <div className="text-sm text-gray-500 p-2">아직 댓글이 없습니다.</div>;
+
+  return (
+    <div className="space-y-2 mt-3 pt-3 border-t">
+      {comments.map(comment => (
+        <div key={comment.id} className="text-sm">
+          <span className="font-semibold text-gray-700">{comment.profiles?.nickname || '익명'}</span>
+          <p className="text-gray-600 ml-2">{comment.content}</p>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// --- TopicCard Component ---
+const TopicCard = ({ topic, sources, summary, message_id }: Topic) => {
+  const [isCommentsVisible, setIsCommentsVisible] = useState(false);
+
+  const handleToggleComments = () => {
+    setIsCommentsVisible(prev => !prev);
+  };
 
   return (
     <div className="bg-white p-4 rounded-lg shadow border border-gray-200 hover:shadow-lg transition-shadow duration-200">
-      <div className="mb-2 flex justify-between items-center">
+      <div className="mb-2">
         <span className="text-lg font-bold text-gray-800">{topic}</span>
-        {chatroom_id && message_id && (
-          <button
-            onClick={() => setShowCommentsModal(true)}
-            className="text-blue-500 hover:text-blue-700 text-sm flex items-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.76c0 1.606 1.123 2.987 2.675 3.124o14.95 0c1.552-.137 2.675-1.518 2.675-3.124s-1.123-2.987-2.675-3.124H4.925C3.373 9.773 2.25 11.154 2.25 12.76z" />
-            </svg>
-            댓글
-          </button>
-        )}
       </div>
       {sources && sources.length > 0 && (
         <div className="mb-3">
@@ -39,23 +80,26 @@ const TopicCard = ({ topic, sources, summary, chatroom_id, message_id }: Topic) 
       )}
       <p className="text-gray-600 text-sm">{summary}</p>
 
-      {chatroom_id && (
-        <Link href={`/chat/${chatroom_id}?message=${message_id}`} className="text-blue-500 hover:underline text-sm mt-2 block">
-          채팅방으로 이동
-        </Link>
-      )}
+      <div className="mt-4">
+        {message_id && (
+          <button
+            onClick={handleToggleComments}
+            className="text-blue-500 hover:text-blue-700 text-sm flex items-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.76c0 1.606 1.123 2.987 2.675 3.124h14.15c1.552-.137 2.675-1.518 2.675-3.124s-1.123-2.987-2.675-3.124H4.925C3.373 9.773 2.25 11.154 2.25 12.76z" />
+            </svg>
+            {isCommentsVisible ? '댓글 숨기기' : '댓글 펼치기'}
+          </button>
+        )}
+      </div>
 
-      {showCommentsModal && message_id && (
-        <MessageCommentsModal
-          messageId={message_id.toString()} // message_id는 number 타입이므로 string으로 변환
-          onClose={() => setShowCommentsModal(false)}
-          onCommentAdded={() => {}} // 댓글 추가 후 처리 로직 (필요시 구현)
-        />
-      )}
+      {isCommentsVisible && message_id && <CommentList messageId={message_id} />}
     </div>
   );
 };
 
+// --- AllPopularTopics Component ---
 const AllPopularTopics: React.FC = () => {
   const [weeklyTopics, setWeeklyTopics] = useState<Topic[]>([]);
   const [dailyTopics, setDailyTopics] = useState<Topic[]>([]);
@@ -67,7 +111,7 @@ const AllPopularTopics: React.FC = () => {
       try {
         const { data, error } = await supabase
           .from('popular_topics')
-          .select('*, chatroom_id, message_id') // chatroom_id와 message_id도 함께 가져옵니다.
+          .select('*, chatroom_id, message_id')
           .in('type', ['weekly', 'daily'])
           .order('score', { ascending: false });
 
