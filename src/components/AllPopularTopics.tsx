@@ -85,7 +85,7 @@ const TopicCard = ({ topic, sources, summary, message_id }: Topic) => {
       )}
       <p className="text-gray-600 text-sm">{summary}</p>
 
-      <div className="mt-4">
+      <div className="mt-4 flex justify-start">
         {message_id && (
           <button
             onClick={handleToggleComments}
