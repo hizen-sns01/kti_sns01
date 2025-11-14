@@ -15,6 +15,14 @@ export interface Message {
   content: string;
   created_at: string;
   chatroom_id: string;
+  image_url?: string | null;
+  replying_to_message_id: string | null;
+  parent_message: {
+    content: string;
+    profiles: {
+      nickname: string;
+    } | null;
+  } | null;
   curator_message_type: 'idle' | 'news' | 'user' | null;
   profiles: {
     nickname: string;
@@ -25,5 +33,5 @@ export interface Message {
   comment_count: number;
   user_has_liked: boolean;
   user_has_disliked: boolean;
-  message_comments: Comment[];
 }
+

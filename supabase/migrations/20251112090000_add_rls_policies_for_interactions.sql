@@ -1,7 +1,3 @@
--- Fix relationship between message_comments and profiles
-ALTER TABLE public.message_comments
-  ADD CONSTRAINT fk_user_id FOREIGN KEY (user_id) REFERENCES public.profiles(id);
-
 -- RLS Policies for Interactions
 
 -- Enable RLS and define policies for message_likes

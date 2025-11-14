@@ -29,6 +29,7 @@ const ChatroomPage: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -36,12 +37,16 @@ const ChatroomPage: React.FC = () => {
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, messageId: null as string | null });
   const [showDropdown, setShowDropdown] = useState(false); // State for dropdown menu
   const [chatroomName, setChatroomName] = useState('채팅방'); // State for chatroom name
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
 
   const { isAdmin, setAdminStatus } = useChatroomAdmin(); // Use chatroom admin context
 
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -137,19 +142,47 @@ const ChatroomPage: React.FC = () => {
   }, [id]);
 
   const processMessages = async (data: any[]) => {
+    if (!data || data.length === 0) {
+      return [];
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
-    return Promise.all(data.map(async (item) => {
-      const { data: likeData } = await supabase.from('message_likes').select('user_id').eq('message_id', item.id).eq('user_id', user?.id).single();
-      const { data: dislikeData } = await supabase.from('message_dislikes').select('user_id').eq('message_id', item.id).eq('user_id', user?.id).single();
-      
-      return {
+    if (!user) {
+      return data.map(item => ({
         ...item,
-        like_count: item.message_likes[0]?.count || 0,
-        dislike_count: item.message_dislikes[0]?.count || 0,
-        comment_count: item.message_comments.length,
-        user_has_liked: !!likeData,
-        user_has_disliked: !!dislikeData,
-      };
+        like_count: item.message_likes?.[0]?.count || 0,
+        dislike_count: item.message_dislikes?.[0]?.count || 0,
+        user_has_liked: false,
+        user_has_disliked: false,
+      }));
+    }
+
+    const messageIds = data.map(m => m.id);
+
+    const { data: likesData, error: likesError } = await supabase
+      .from('message_likes')
+      .select('message_id')
+      .eq('user_id', user.id)
+      .in('message_id', messageIds);
+
+    const { data: dislikesData, error: dislikesError } = await supabase
+      .from('message_dislikes')
+      .select('message_id')
+      .eq('user_id', user.id)
+      .in('message_id', messageIds);
+
+    if (likesError) console.error('Error fetching likes:', likesError);
+    if (dislikesError) console.error('Error fetching dislikes:', dislikesError);
+
+    const likedIds = new Set(likesData?.map(l => l.message_id) || []);
+    const dislikedIds = new Set(dislikesData?.map(d => d.message_id) || []);
+
+    return data.map(item => ({
+      ...item,
+      like_count: item.message_likes?.[0]?.count || 0,
+      dislike_count: item.message_dislikes?.[0]?.count || 0,
+      user_has_liked: likedIds.has(item.id),
+      user_has_disliked: dislikedIds.has(item.id),
     }));
   };
 
@@ -163,7 +196,8 @@ const ChatroomPage: React.FC = () => {
           *,
           profiles ( nickname, is_ai_curator ),
           message_likes ( count ),
-          message_comments ( *, profiles ( nickname ) )
+          message_dislikes ( count ),
+          parent_message:replying_to_message_id ( content, profiles ( nickname ) )
         `)
         .eq('chatroom_id', id)
         .order('created_at', { ascending: false })
@@ -184,7 +218,7 @@ const ChatroomPage: React.FC = () => {
   };
 
   const fetchMoreMessages = async () => {
-    if (!id || !hasMore || loadingMore) return;
+    if (!id) return;
     setLoadingMore(true);
 
     const { data, error } = await supabase
@@ -193,7 +227,8 @@ const ChatroomPage: React.FC = () => {
         *,
         profiles ( nickname, is_ai_curator ),
         message_likes ( count ),
-        message_comments ( *, profiles ( nickname ) )
+        message_dislikes ( count ),
+        parent_message:replying_to_message_id ( content, profiles ( nickname ) )
       `)
       .eq('chatroom_id', id)
       .order('created_at', { ascending: false })
@@ -224,52 +259,123 @@ const ChatroomPage: React.FC = () => {
     setLoadingMore(false);
   };
 
-  // Main effect for initialization and subscriptions
-  useEffect(() => {
-    if (!id) return;
+    // Main effect for initialization and subscriptions
 
-    const cachedMessages = localStorage.getItem(`chat_messages_${id}`);
-    if (cachedMessages) {
-        setMessages(JSON.parse(cachedMessages));
-        setLoading(false);
-    }
+    useEffect(() => {
 
-    const channel = supabase.channel(`chatroom:${id}`);
-    const messageSubscription = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` }, async (payload) => {
-      
-      const scrollContainer = scrollContainerRef.current;
-      const isAtBottom = scrollContainer ? (scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight) < 100 : true;
+      if (!id) return;
 
-      const { data: newMessage, error } = await supabase
-        .from('messages')
-        .select(`
-          *,
-          profiles ( nickname, is_ai_curator ),
-          message_likes ( count ),
-          message_comments ( *, profiles ( nickname ) )
-        `)
-        .eq('id', payload.new.id)
-        .single();
+  
 
-      if (error) {
-        console.error('Error fetching new message:', error);
-        return;
-      }
+      fetchInitialMessages();
 
-      if (newMessage) {
-        const processedPayload = await processMessages([newMessage]);
-        setMessages(prev => [...prev, ...processedPayload]);
-        if (isAtBottom) {
-            setTimeout(() => scrollToBottom('smooth'), 0);
-        } else {
-            setShowNewMessageButton(true);
+  
+
+      const channel = supabase.channel(`chatroom:${id}`);
+
+      const messageSubscription = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${id}` }, async (payload) => {
+
+        
+
+        const scrollContainer = scrollContainerRef.current;
+
+        const isAtBottom = scrollContainer ? (scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight) < 100 : true;
+
+  
+
+        // First, fetch the new message itself
+
+        const { data: newMessage, error } = await supabase
+
+          .from('messages')
+
+          .select(`
+
+            *,
+
+            profiles ( nickname, is_ai_curator ),
+
+            message_likes ( count ),
+
+            message_dislikes ( count )
+
+          `)
+
+          .eq('id', payload.new.id)
+
+          .single();
+
+  
+
+        if (error) {
+
+          console.error('Error fetching new message:', error);
+
+          return;
+
         }
-      }
-    });
 
-    channel.subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [id]);
+  
+
+        if (newMessage) {
+
+          // If it's a reply, fetch the parent message data in a separate query to avoid race conditions
+
+          if (newMessage.replying_to_message_id) {
+
+            const { data: parentData, error: parentError } = await supabase
+
+              .from('messages')
+
+              .select('content, profiles (nickname)')
+
+              .eq('id', newMessage.replying_to_message_id)
+
+              .single();
+
+  
+
+            if (parentError) {
+
+              console.error('Error fetching parent message for realtime update:', parentError);
+
+            } else {
+
+              // Manually attach the parent message data
+
+              newMessage.parent_message = parentData;
+
+            }
+
+          }
+
+  
+
+          const processedPayload = await processMessages([newMessage]);
+
+          setMessages(prev => [...prev, ...processedPayload]);
+
+          if (isAtBottom) {
+
+              setTimeout(() => scrollToBottom('smooth'), 0);
+
+          } else {
+
+              setShowNewMessageButton(true);
+
+          }
+
+        }
+
+      });
+
+  
+
+      channel.subscribe();
+
+      return () => { supabase.removeChannel(channel); };
+
+    }, [id]);
 
   useLayoutEffect(() => {
     const cachedScroll = localStorage.getItem(`chat_scroll_position_${id}`);
@@ -321,21 +427,73 @@ const ChatroomPage: React.FC = () => {
     inputRef.current?.focus();
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeSelectedImage = () => {
+    setSelectedImage(null);
+    setPreviewUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmedMessage = newMessage.trim();
-    if (trimmedMessage === '' || !currentUser || !id) return;
+    if (!currentUser || !id || typeof id !== 'string') return;
 
-    const { error } = await supabase.from('messages').insert([{ chatroom_id: id, user_id: currentUser.id, content: trimmedMessage, curator_message_type: 'user' }]);
-    
-    if (error) {
-      console.error('Error sending message:', error.message);
+    const trimmedMessage = newMessage.trim();
+    if (trimmedMessage === '' && !selectedImage) {
       return;
     }
 
-    setNewMessage('');
-    setShowSuggestions(false);
-    scrollToBottom('smooth');
+    setIsSending(true);
+
+    try {
+      let imageUrl: string | null = null;
+      if (selectedImage) {
+        const { uploadImage } = await import('../../supabaseClient');
+        imageUrl = await uploadImage(selectedImage, currentUser.id);
+      }
+
+      const messageToInsert: Partial<Message> = {
+        chatroom_id: id,
+        user_id: currentUser.id,
+        content: trimmedMessage,
+        image_url: imageUrl,
+        curator_message_type: 'user',
+      };
+
+      if (replyingTo) {
+        messageToInsert.replying_to_message_id = replyingTo.id;
+      }
+
+      const { error } = await supabase.from('messages').insert([messageToInsert]);
+
+      if (error) {
+        throw error;
+      }
+
+      setNewMessage('');
+      setReplyingTo(null);
+      setShowSuggestions(false);
+      removeSelectedImage();
+      // scrollToBottom is handled by the realtime subscription now
+    } catch (error: any) {
+      console.error('Error sending message:', error.message);
+      alert('메시지 전송에 실패했습니다.');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleLike = async (messageId: string) => {
@@ -402,30 +560,12 @@ const ChatroomPage: React.FC = () => {
     }
   };
 
-  const handleCommentClick = (messageId: string) => {
-    setSelectedMessageId(messageId);
-    setContextMenu({ visible: false, x: 0, y: 0, messageId: null }); // Close context menu
-    setShowCommentsModal(true);
-  };
-
-  const handleCloseCommentsModal = () => {
-    setSelectedMessageId(null);
-    setShowCommentsModal(false);
-  };
-
-  const handleCommentAdded = (newComment: Comment) => {
-    setMessages(prevMessages =>
-      prevMessages.map(msg => {
-        if (msg.id === newComment.message_id) {
-          return {
-            ...msg,
-            message_comments: [...msg.message_comments, newComment],
-            comment_count: msg.comment_count + 1,
-          };
-        }
-        return msg;
-      })
-    );
+  const handleReplyClick = (messageId: string) => {
+    const messageToReply = messages.find(m => m.id === messageId);
+    if (messageToReply) {
+      setReplyingTo(messageToReply);
+    }
+    setContextMenu({ visible: false, x: 0, y: 0, messageId: null });
   };
 
   const handleShare = (messageId: string) => {
@@ -460,7 +600,7 @@ const ChatroomPage: React.FC = () => {
   console.log('TEST: ChatroomPage rendered'); // Add this line
 
   return (
-    <div className="flex flex-col h-[calc(100vh-9rem)]">
+    <div className="flex flex-col h-[calc(100vh-9rem)] bg-[#F5F1EB]">
       {/* Chatroom Header with Hamburger Menu */}
       <div className="flex justify-between items-center p-4 border-b bg-white relative">
         <Link href="/chat" className="absolute left-4 top-1/2 transform -translate-y-1/2 z-30">
@@ -495,7 +635,7 @@ const ChatroomPage: React.FC = () => {
             <div style={{ top: contextMenu.y, left: contextMenu.x }} className="absolute z-50 bg-white border rounded-lg shadow-lg p-2 flex flex-col space-y-1">
                 <button onClick={() => { handleLike(contextMenu.messageId!); }} className="p-2 text-left hover:bg-gray-100 rounded">👍 좋아요</button>
                 <button onClick={() => { handleDislike(contextMenu.messageId!); }} className="p-2 text-left hover:bg-gray-100 rounded">👎 싫어요</button>
-                <button onClick={() => { handleCommentClick(contextMenu.messageId!); }} className="p-2 text-left hover:bg-gray-100 rounded">💬 댓글</button>
+                <button onClick={() => { handleReplyClick(contextMenu.messageId!); }} className="p-2 text-left hover:bg-gray-100 rounded">💬 답장</button>
                 <button onClick={() => { handleShare(contextMenu.messageId!); }} className="p-2 text-left hover:bg-gray-100 rounded">🔗 공유</button>
                 <button onClick={() => { handleCopy(messages.find(m => m.id === contextMenu.messageId!)?.content || ''); }} className="p-2 text-left hover:bg-gray-100 rounded">복사</button>
             </div>
@@ -516,7 +656,30 @@ const ChatroomPage: React.FC = () => {
 
             const isCurrentUser = message.user_id === currentUser?.id;
             const isAiCurator = message.profiles?.is_ai_curator === true;
-            const isCommand = !isAiCurator && botcall.keywords.some(keyword => message.content.startsWith(keyword));
+            
+            // --- Style Definitions ---
+            let bubbleClasses = 'px-4 py-2 rounded-lg inline-block';
+            let quoteClasses = 'p-2 mb-2 border-l-2';
+            let quoteAuthorClasses = 'text-xs font-semibold';
+            let quoteTextClasses = 'text-sm max-h-12 overflow-hidden'; // Fix: Use max-height instead of truncate
+
+            if (isAiCurator) {
+                bubbleClasses += ' bg-[#F3F6FA] text-yellow-900 font-mono';
+                quoteClasses += ' border-yellow-400 bg-yellow-50';
+                quoteAuthorClasses += ' text-yellow-800';
+                quoteTextClasses += ' text-yellow-800';
+            } else if (isCurrentUser) {
+                bubbleClasses += ' bg-[#E8F5E9] text-black';
+                quoteClasses += ' bg-[#D9FDD3] border-l-[#40B340]';
+                quoteAuthorClasses += ' text-[#555555]';
+                quoteTextClasses += ' text-[#555555]';
+            } else {
+                bubbleClasses += ' bg-white text-black shadow-sm';
+                quoteClasses += ' bg-[#F1F5F9] border-l-[#0088CC]';
+                quoteAuthorClasses += ' text-black';
+                quoteTextClasses += ' text-black';
+            }
+            // --- End Style Definitions ---
 
             return (
               <React.Fragment key={message.id}>
@@ -526,40 +689,33 @@ const ChatroomPage: React.FC = () => {
                   </div>
                 )}
                 <div onContextMenu={(e) => handleContextMenu(e, message.id)} className={`flex items-end ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
-                                      <div className={`flex flex-col space-y-1 text-base max-w-xs mx-2 ${isCurrentUser ? 'order-2 items-end' : 'order-1 items-start'}`}>                    {!isCurrentUser && <span className="text-xs text-gray-500">{message.profiles?.nickname || '사용자'}</span>}
-                    <div className={`px-4 py-2 rounded-lg inline-block ${isCurrentUser ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'} ${isCommand ? 'font-mono bg-yellow-200 text-yellow-900' : ''}`}>
-                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                  <div className={`flex flex-col space-y-1 text-base w-full max-w-[80%] mx-2 ${isCurrentUser ? 'order-2 items-end' : 'order-1 items-start'}`}>
+                    {!isCurrentUser && <span className="text-xs text-gray-500 mb-1">{message.profiles?.nickname || '사용자'}</span>}
+                    <div className={bubbleClasses}>
+                        {message.parent_message && (
+                          <div className={quoteClasses}>
+                            <p className={quoteAuthorClasses}>{message.parent_message.profiles?.nickname || '이름없음'}</p>
+                            <p className={quoteTextClasses}>{message.parent_message.content}</p>
+                          </div>
+                        )}
+                        {message.image_url && (
+                          <img
+                            src={message.image_url}
+                            alt="전송된 이미지"
+                            className="max-w-full h-auto rounded-md my-2"
+                          />
+                        )}
+                        {message.content && <ReactMarkdown>{message.content}</ReactMarkdown>}
                     </div>
-                    {(message.like_count > 0 || message.dislike_count > 0 || (message.comment_count || 0) > 0) && (
+                    {(message.like_count > 0 || message.dislike_count > 0) && (
                         <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
                             {message.like_count > 0 && <span className="flex items-center">👍 {message.like_count}</span>}
                             {message.dislike_count > 0 && <span className="flex items-center">👎 {message.dislike_count}</span>}
-                            {(message.comment_count || 0) > 0 && <span className="flex items-center">💬 {message.comment_count}</span>}
                         </div>
                     )}
                   </div>
                   {showTimestamp && <span className={`text-xs text-gray-400 ${isCurrentUser ? 'order-1' : 'order-2'}`}>{formatTime(message.created_at)}</span>}
                 </div>
-
-                {/* Render Comments */}
-                {message.message_comments && message.message_comments.length > 0 && (
-                  <div className="pl-10 pr-2">
-                    {message.message_comments.map(comment => {
-                      const isCommenterCurrentUser = comment.user_id === currentUser?.id;
-                      return (
-                        <div key={comment.id} className={`flex items-start mt-2 ${isCommenterCurrentUser ? 'justify-end' : 'justify-start'}`}>
-                          <div className="text-2xl text-gray-400 mr-2">↳</div>
-                          <div className="flex flex-col">
-                            <span className="text-xs text-gray-500">{comment.profiles?.nickname || '사용자'}</span>
-                            <div className={`px-3 py-1 mt-1 rounded-lg inline-block text-sm ${isCommenterCurrentUser ? 'bg-gray-500 text-white' : 'bg-gray-100 text-gray-700'}`}>
-                              {comment.content}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </React.Fragment>
             );
           })}
@@ -570,12 +726,41 @@ const ChatroomPage: React.FC = () => {
       {showCommentsModal && selectedMessageId && (
         <MessageCommentsModal
           messageId={selectedMessageId}
-          onClose={handleCloseCommentsModal}
-          onCommentAdded={handleCommentAdded}
+          onClose={() => setShowCommentsModal(false)}
+          onCommentAdded={(newComment) => {
+            // This logic is now handled by the new reply feature
+          }}
         />
       )}
 
       <div className="p-2 md:p-4 bg-white border-t relative">
+        {previewUrl && (
+          <div className="p-2 bg-gray-100 border-b border-gray-200">
+            <div className="relative inline-block">
+              <img src={previewUrl} alt="Preview" className="h-20 w-20 object-cover rounded-md" />
+              <button
+                onClick={removeSelectedImage}
+                className="absolute top-0 right-0 -mt-2 -mr-2 bg-gray-700 text-white rounded-full p-1"
+                aria-label="Remove image"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+        {replyingTo && (
+          <div className="p-2 bg-gray-100 border-b border-gray-200 rounded-t-lg">
+            <div className="flex justify-between items-center text-sm">
+              <p className="text-gray-600">
+                <span className="font-semibold">{replyingTo.profiles?.nickname || '사용자'}</span>님에게 답장
+              </p>
+              <button onClick={() => setReplyingTo(null)} className="font-bold text-gray-500 hover:text-gray-700">X</button>
+            </div>
+            <p className="text-xs text-gray-500 truncate mt-1">{replyingTo.content}</p>
+          </div>
+        )}
         {showNewMessageButton && (
             <button 
                 onClick={handleNewMessageButtonClick}
@@ -595,16 +780,36 @@ const ChatroomPage: React.FC = () => {
           </div>
         )}
         <form onSubmit={handleSendMessage} className="flex items-center">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="p-2 text-gray-500 hover:text-gray-700 rounded-full"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+            </svg>
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            accept="image/*"
+            className="hidden"
+          />
           <input
             ref={inputRef}
             type="text"
             value={newMessage}
             onChange={handleInputChange}
-            className="flex-grow border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-grow border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 mx-2"
             placeholder={`메시지를 입력하세요... (${botcall.keywords.join(', ')}로 질문 가능)`}
           />
-          <button type="submit" className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300" disabled={!newMessage.trim()}>
-            전송
+          <button
+            type="submit"
+            className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300"
+            disabled={(!newMessage.trim() && !selectedImage) || isSending}
+          >
+            {isSending ? '전송 중...' : '전송'}
           </button>
         </form>
       </div>

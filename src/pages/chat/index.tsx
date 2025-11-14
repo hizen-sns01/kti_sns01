@@ -8,7 +8,7 @@ interface Chatroom {
   description: string;
   participant_count: number;
   is_member: boolean;
-  is_activate: boolean; // Changed to is_activate property
+  is_activate: boolean;
 }
 
 const ChatPage: React.FC = () => {
@@ -39,7 +39,6 @@ const ChatPage: React.FC = () => {
         if (chatroomsError) throw chatroomsError;
 
         const allChatroomsData: Chatroom[] = allChatrooms || [];
-        // Filter out chatrooms where is_activate is false
         const activeChatrooms = allChatroomsData.filter(chatroom => chatroom.is_activate !== false);
         setChatrooms(activeChatrooms);
 
@@ -57,7 +56,6 @@ const ChatPage: React.FC = () => {
     return <div className="p-4 text-center">로딩 중...</div>;
   }
 
-  // Separate chatrooms into joined and other for rendering
   const joinedChatrooms = chatrooms.filter(c => c.is_member);
   const otherChatrooms = chatrooms.filter(c => !c.is_member);
 
@@ -78,7 +76,6 @@ const ChatPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Joined Chatrooms Section */}
       <div className="mb-12">
         <h1 className="text-xl md:text-2xl font-bold mb-4">참여 중인 채팅방</h1>
         <div className="space-y-3 md:space-y-4">
@@ -110,7 +107,6 @@ const ChatPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Other Chatrooms Section */}
       <div>
         <h1 className="text-xl md:text-2xl font-bold mb-4">다른 채팅방</h1>
         <div className="space-y-3 md:space-y-4">
