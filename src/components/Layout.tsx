@@ -1,42 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { useChatroomAdmin } from '../context/ChatroomAdminContext'; // Import useChatroomAdmin
+import { useChatroomAdmin } from '../context/ChatroomAdminContext';
+import { useUserProfile } from '../hooks/useUserProfile'; // Import the custom hook
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAdmin } = useChatroomAdmin(); // Import useChatroomAdmin
+  const { isAdmin } = useChatroomAdmin();
   const router = useRouter();
-  const { id } = router.query; // Get chatroom ID from router query
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { id } = router.query;
+  const { user, profile, loading: profileLoading } = useUserProfile(); // Use the custom hook
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [hideNav, setHideNav] = useState(false); // State to control nav visibility
+  const [hideNav, setHideNav] = useState(false);
+
+  // Redirect to profile page if logged in user has no profile
+  useEffect(() => {
+    const excludedPaths = ['/login', '/auth/callback', '/profile', '/nickname-setting', '/interest-selection'];
+    if (!profileLoading && user && !profile && !excludedPaths.includes(router.pathname)) {
+      router.push('/profile');
+    }
+  }, [user, profile, profileLoading, router]);
 
   useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } = { session: null } } = await supabase.auth.getSession(); // Added default value for session
-      setIsLoggedIn(!!session);
-    };
-    checkSession();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(!!session);
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    // Check if current path is a chatroom page (e.g., /chat/some-id)
     const isChatroomPage = router.pathname.startsWith('/chat/') && router.pathname.split('/').length === 3;
     setHideNav(isChatroomPage);
   }, [router.pathname]);
 
   const handleLogout = async () => {
+    const { supabase } = await import('../supabaseClient');
     await supabase.auth.signOut();
-    router.push('/login'); // Redirect to login page after logout
+    router.push('/login');
   };
 
   useEffect(() => {
@@ -61,6 +53,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     { href: '/chat', label: '채팅' },
   ];
 
+  // Show a loading indicator while checking for profile
+  if (profileLoading) {
+    return <div className="flex justify-center items-center h-screen">로딩 중...</div>;
+  }
+
   return (
     <div className="max-w-2xl mx-auto">
       
@@ -73,7 +70,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               </div>
             </Link>
           ))}
-          {isLoggedIn && (
+          {user && ( // Check for user object from the hook
             <div className="relative ml-auto z-50"> 
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}

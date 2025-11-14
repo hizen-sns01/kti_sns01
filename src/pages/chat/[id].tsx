@@ -9,6 +9,7 @@ import ReactMarkdown from 'react-markdown'; // Import ReactMarkdown
 import { Comment, Message } from '../../types';
 import MessageCommentsModal from '../../components/MessageCommentsModal';
 import { useChatroomAdmin } from '../../context/ChatroomAdminContext';
+import { useUserProfile } from '../../hooks/useUserProfile';
 
 const formatDateSeparator = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -23,10 +24,11 @@ const formatTime = (dateStr: string) => {
 const ChatroomPage: React.FC = () => {
   const router = useRouter();
   const { id } = router.query;
+  const { user, profile, loading: profileLoading } = useUserProfile();
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -74,12 +76,6 @@ const ChatroomPage: React.FC = () => {
   }, [id, messages]);
 
   useEffect(() => {
-    const setupUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUser(user);
-    };
-    setupUser();
-
     const handleClickOutside = (event: MouseEvent) => {
         if (contextMenu.visible) {
             setContextMenu({ visible: false, x: 0, y: 0, messageId: null });
@@ -96,16 +92,24 @@ const ChatroomPage: React.FC = () => {
     };
   }, [contextMenu.visible, showDropdown]);
 
+  // Redirect if profile is not set
+  useEffect(() => {
+    if (!profileLoading && user && !profile) {
+      alert('채팅방을 이용하려면 먼저 프로필을 설정해야 합니다.');
+      router.push('/profile');
+    }
+  }, [user, profile, profileLoading, router]);
+
   // Effect to check admin status
   useEffect(() => {
     const checkAdminStatus = async () => {
-      if (!id || !currentUser) return;
+      if (!id || !user) return; // Use user from hook
 
       const { data, error } = await supabase
         .from('chatroom_ad')
         .select('id')
         .eq('chatroom_id', id)
-        .eq('user_id', currentUser.id)
+        .eq('user_id', user.id) // Use user.id from hook
         .eq('role', 'RA')
         .eq('is_active', true); // Removed .single()
       
@@ -120,7 +124,7 @@ const ChatroomPage: React.FC = () => {
     };
 
     checkAdminStatus();
-  }, [id, currentUser, setAdminStatus]);
+  }, [id, user, setAdminStatus]); // Use user from hook
 
   // Effect to fetch chatroom name
   useEffect(() => {
@@ -146,8 +150,8 @@ const ChatroomPage: React.FC = () => {
       return [];
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const { data: { user: authUser } } = await supabase.auth.getUser(); // Rename to authUser to avoid conflict
+    if (!authUser) {
       return data.map(item => ({
         ...item,
         like_count: item.message_likes?.[0]?.count || 0,
@@ -162,13 +166,13 @@ const ChatroomPage: React.FC = () => {
     const { data: likesData, error: likesError } = await supabase
       .from('message_likes')
       .select('message_id')
-      .eq('user_id', user.id)
+      .eq('user_id', authUser.id)
       .in('message_id', messageIds);
 
     const { data: dislikesData, error: dislikesError } = await supabase
       .from('message_dislikes')
       .select('message_id')
-      .eq('user_id', user.id)
+      .eq('user_id', authUser.id)
       .in('message_id', messageIds);
 
     if (likesError) console.error('Error fetching likes:', likesError);
@@ -449,7 +453,7 @@ const ChatroomPage: React.FC = () => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser || !id || typeof id !== 'string') return;
+    if (!user || !id || typeof id !== 'string') return;
 
     const trimmedMessage = newMessage.trim();
     if (trimmedMessage === '' && !selectedImage) {
@@ -462,12 +466,12 @@ const ChatroomPage: React.FC = () => {
       let imageUrl: string | null = null;
       if (selectedImage) {
         const { uploadImage } = await import('../../supabaseClient');
-        imageUrl = await uploadImage(selectedImage, currentUser.id);
+        imageUrl = await uploadImage(selectedImage, user.id);
       }
 
       const messageToInsert: Partial<Message> = {
         chatroom_id: id,
-        user_id: currentUser.id,
+        user_id: user.id,
         content: trimmedMessage,
         image_url: imageUrl,
         curator_message_type: 'user',
@@ -497,9 +501,7 @@ const ChatroomPage: React.FC = () => {
   };
 
   const handleLike = async (messageId: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
     const message = messages.find(m => m.id === messageId);
     if (!message) return;
 
@@ -529,9 +531,7 @@ const ChatroomPage: React.FC = () => {
   };
 
   const handleDislike = async (messageId: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
     const message = messages.find(m => m.id === messageId);
     if (!message) return;
 
@@ -654,7 +654,7 @@ const ChatroomPage: React.FC = () => {
 
             const showTimestamp = !isSameUserAsNext || !isSameMinuteAsNext;
 
-            const isCurrentUser = message.user_id === currentUser?.id;
+            const isCurrentUser = message.user_id === user?.id;
             const isAiCurator = message.profiles?.is_ai_curator === true;
             
             // --- Style Definitions ---
