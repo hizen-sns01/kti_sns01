@@ -78,18 +78,26 @@ const ChatroomSettingsPage: React.FC = () => {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id || !isAdmin || saving) return; // Only admin can save
+    if (!id || !isAdmin || saving) return;
 
     setSaving(true);
+
+    const thresholdValue = isIdleDetectionEnabled 
+      ? (idleThresholdMinutes === '' ? 0 : idleThresholdMinutes) 
+      : 0;
+
+    const settingsToUpdate = {
+      name: chatroomName,
+      persona: curatorPersona,
+      idle_threshold_minutes: thresholdValue,
+      enable_article_summary: enableArticleSummary,
+    };
+
+    console.log('Updating chatroom with settings:', settingsToUpdate);
+
     const { error } = await supabase
       .from('chatrooms')
-      .update({
-        name: chatroomName,
-        persona: curatorPersona,
-        // If idle detection is enabled, use the current value, otherwise set to 0
-        idle_threshold_minutes: isIdleDetectionEnabled ? (idleThresholdMinutes === '' ? 0 : idleThresholdMinutes) : 0,
-        enable_article_summary: enableArticleSummary,
-      })
+      .update(settingsToUpdate)
       .eq('id', id);
 
     if (error) {
