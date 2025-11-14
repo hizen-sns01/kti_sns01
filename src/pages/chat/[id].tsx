@@ -463,21 +463,7 @@ const ChatroomPage = () => {
     setIsSending(true);
 
     try {
-<<<<<<< HEAD
-      let imageUrl: string | null = null;
-      if (selectedImage) {
-        const { uploadImage } = await import('../../supabaseClient');
-        imageUrl = await uploadImage(selectedImage, user.id);
-      }
-
-      const messageToInsert: Partial<Message> = {
-        chatroom_id: id,
-        user_id: user.id,
-        content: trimmedMessage,
-        image_url: imageUrl,
-        curator_message_type: 'user',
-      };
-=======
+    try {
       // Handle /ask command separately
       if (trimmedMessage.startsWith('/ask')) {
         const question = trimmedMessage.substring(4).trim();
@@ -485,7 +471,7 @@ const ChatroomPage = () => {
           const response = await fetch('/api/curator/qa-handler', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question, chatroomId: id }),
+            body: JSON_stringify({ question, chatroomId: id }),
           });
 
           if (!response.ok) {
@@ -498,16 +484,15 @@ const ChatroomPage = () => {
         let imageUrl: string | null = null;
         if (selectedImage) {
           const { uploadImage } = await import('../../supabaseClient');
-          imageUrl = await uploadImage(selectedImage, currentUser.id);
+          imageUrl = await uploadImage(selectedImage, user.id);
         }
->>>>>>> 0c7cb204bea17a1321637ad11dfbf30bd9237933
 
         const messageToInsert: Partial<Message> = {
           chatroom_id: id,
-          user_id: currentUser.id,
+          user_id: user.id,
           content: trimmedMessage,
           image_url: imageUrl,
-          is_ai_curator: false, // Fix for the 400 Bad Request error
+          is_ai_curator: false, // 일반 메시지이므로 false
           curator_message_type: 'user',
         };
 
