@@ -23,7 +23,8 @@ export interface Message {
       nickname: string;
     } | null;
   } | null;
-  curator_message_type: 'idle' | 'news' | 'user' | null;
+  curator_message_type: 'idle' | 'news' | 'user' | 'QA_RESPONSE' | null;
+  is_ai_curator: boolean; // Add this line
   profiles: {
     nickname: string;
     is_ai_curator: boolean;
