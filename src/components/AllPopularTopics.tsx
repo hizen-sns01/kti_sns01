@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import Link from 'next/link';
+import { useUserProfile } from '../hooks/useUserProfile';
 
 // --- Interfaces ---
 interface Comment {
