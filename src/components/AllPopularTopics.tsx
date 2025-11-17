@@ -219,7 +219,7 @@ const ThreadedCommentList = ({ messageId, chatroomId }: { messageId: number, cha
 };
 
 // --- TopicCard Component ---
-const TopicCard = ({ topic, sources, summary, message_id }: Topic) => {
+const TopicCard = ({ topic, sources, summary, message_id, chatroom_id }: Topic) => {
   const [isCommentsVisible, setIsCommentsVisible] = useState(false);
 
   return (
