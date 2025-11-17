@@ -101,7 +101,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, onReply, onDelete, o
 };
 
 // --- ThreadedCommentList Component ---
-const ThreadedCommentList = ({ messageId }: { messageId: number }) => {
+const ThreadedCommentList = ({ messageId, chatroomId }: { messageId: number, chatroomId: string | undefined }) => {
   const [comments, setComments] = useState<ThreadedComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
@@ -139,6 +139,7 @@ const ThreadedCommentList = ({ messageId }: { messageId: number }) => {
         content: trimmedComment,
         user_id: user.id,
         replying_to_message_id: replyingTo || messageId,
+        chatroom_id: chatroomId,
       });
 
     if (error) {
@@ -240,7 +241,7 @@ const TopicCard = ({ topic, sources, summary, message_id }: Topic) => {
           </button>
         )}
       </div>
-      {isCommentsVisible && message_id && <ThreadedCommentList messageId={message_id} />}
+      {isCommentsVisible && message_id && <ThreadedCommentList messageId={message_id} chatroomId={chatroom_id} />}
     </div>
   );
 };
