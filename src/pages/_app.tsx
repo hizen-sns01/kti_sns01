@@ -7,10 +7,6 @@ import { supabase } from '../supabaseClient';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import { ChatroomAdminProvider } from '../context/ChatroomAdminContext'; // Import ChatroomAdminProvider
 
-const publicRoutes = ['/login']; // Routes accessible without login
-
-import { SessionContextProvider } from '@supabase/auth-helpers-react';
-
 function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
 
