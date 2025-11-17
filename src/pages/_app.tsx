@@ -4,9 +4,12 @@ import Layout from '../components/Layout';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import { ChatroomAdminProvider } from '../context/ChatroomAdminContext'; // Import ChatroomAdminProvider
 
 const publicRoutes = ['/login']; // Routes accessible without login
+
+import { SessionContextProvider } from '@supabase/auth-helpers-react';
 
 function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
@@ -68,15 +71,21 @@ function MyApp({ Component, pageProps }: AppProps) {
   const noLayoutRoutes = ['/login', '/interest-selection', '/nickname-setting'];
 
   if (noLayoutRoutes.includes(router.pathname)) {
-    return <Component {...pageProps} />;
+    return (
+      <SessionContextProvider supabaseClient={supabase} initialSession={pageProps.initialSession}>
+        <Component {...pageProps} />
+      </SessionContextProvider>
+    );
   }
 
   return (
-    <ChatroomAdminProvider> {/* Wrap Layout with ChatroomAdminProvider */}
-      <Layout>
-        <Component {...pageProps} />
-      </Layout>
-    </ChatroomAdminProvider>
+    <SessionContextProvider supabaseClient={supabase} initialSession={pageProps.initialSession}>
+      <ChatroomAdminProvider> {/* Wrap Layout with ChatroomAdminProvider */}
+        <Layout>
+          <Component {...pageProps} />
+        </Layout>
+      </ChatroomAdminProvider>
+    </SessionContextProvider>
   );
 }
 

@@ -1,0 +1,2 @@
+ALTER TABLE public.messages
+ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;

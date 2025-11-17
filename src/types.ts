@@ -1,12 +1,12 @@
 export interface Comment {
-  id: string;
+  id: number;
   content: string;
   created_at: string;
   user_id: string;
-  message_id: string;
-  profiles: {
-    nickname: string;
-  } | null;
+  nickname: string | null;
+  replying_to_message_id: number | null;
+  is_deleted: boolean;
+  children: Comment[];
 }
 
 export interface Message {
