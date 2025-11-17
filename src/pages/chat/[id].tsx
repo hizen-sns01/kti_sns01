@@ -7,7 +7,6 @@ import botcall from '../../botcall.json';
 import ReactMarkdown from 'react-markdown'; // Import ReactMarkdown
 
 import { Comment, Message } from '../../types';
-import MessageCommentsModal from '../../components/MessageCommentsModal';
 import { useChatroomAdmin } from '../../context/ChatroomAdminContext';
 import { useUserProfile } from '../../hooks/useUserProfile';
 
@@ -29,8 +28,6 @@ const ChatroomPage = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const [showCommentsModal, setShowCommentsModal] = useState(false);
-  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -748,15 +745,7 @@ const ChatroomPage = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {showCommentsModal && selectedMessageId && (
-        <MessageCommentsModal
-          messageId={selectedMessageId}
-          onClose={() => setShowCommentsModal(false)}
-          onCommentAdded={(newComment) => {
-            // This logic is now handled by the new reply feature
-          }}
-        />
-      )}
+
 
       <div className="p-2 md:p-4 bg-white border-t relative">
         {previewUrl && (
