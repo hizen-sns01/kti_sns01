@@ -222,7 +222,9 @@ const ThreadedCommentList = ({ messageId, chatroomId }: { messageId: number, cha
 const TopicCard = ({ topic, sources, summary, message_id, chatroom_id, isExpanded, onToggleExpand }: Topic & { isExpanded: boolean; onToggleExpand: () => void; }) => {
   const [isCommentsVisible, setIsCommentsVisible] = useState(false);
 
-  const displaySummary = isExpanded || summary.length <= 100 ? summary : `${summary.substring(0, 100)}...`;
+  // Explicitly define short and full summary variables for clarity
+  const fullSummary = summary;
+  const shortSummary = summary.length > 100 ? `${summary.substring(0, 100)}...` : summary;
 
   return (
     <div className="bg-white p-4 rounded-lg shadow border border-gray-200 hover:shadow-lg transition-shadow duration-200">
@@ -234,7 +236,13 @@ const TopicCard = ({ topic, sources, summary, message_id, chatroom_id, isExpande
           <span className="text-xs text-gray-500">출처: {sources.join(', ')}</span>
         </div>
       )}
-      <p key={`${summary}-${isExpanded}`} className="text-gray-600 text-sm" style={{ whiteSpace: 'pre-wrap' }}>{displaySummary}</p>
+      
+      {!isExpanded ? (
+        <p className="text-gray-600 text-sm" style={{ whiteSpace: 'pre-wrap' }}>{shortSummary}</p>
+      ) : (
+        <p className="text-gray-600 text-sm" style={{ whiteSpace: 'pre-wrap' }}>{fullSummary}</p>
+      )}
+
       {summary.length > 100 && (
         <button onClick={onToggleExpand} className="text-blue-500 hover:text-blue-700 text-sm mt-1">
           {isExpanded ? '숨기기' : '더보기'}
@@ -284,8 +292,7 @@ const AllPopularTopics: React.FC = () => {
 
       } catch (err: any) {
         console.error('Error fetching popular topics:', err.message);
-      }
-      finally {
+      } finally {
         setLoading(false);
       }
     };
@@ -302,17 +309,14 @@ const AllPopularTopics: React.FC = () => {
         <h2 className="text-xl font-bold text-gray-900 mb-4">실시간 토픽</h2>
         <div className="space-y-4">
           {weeklyTopics.length > 0 ? (
-            weeklyTopics.map((item) => {
-              const isExpanded = !!expandedTopics[item.id];
-              return (
-                <TopicCard 
-                  key={`weekly-${item.id}-${isExpanded}`} 
-                  {...item} 
-                  isExpanded={isExpanded}
-                  onToggleExpand={() => handleToggleExpand(item.id)}
-                />
-              );
-            })
+            weeklyTopics.map((item) => (
+              <TopicCard 
+                key={`weekly-${item.id}`} 
+                {...item} 
+                isExpanded={!!expandedTopics[item.id]}
+                onToggleExpand={() => handleToggleExpand(item.id)}
+              />
+            ))
           ) : (
             <p className="text-gray-500 text-center py-4">아직 집계된 주간 인기 토픽이 없습니다.</p>
           )}
@@ -322,17 +326,14 @@ const AllPopularTopics: React.FC = () => {
         <h2 className="text-xl font-bold text-gray-900 mb-4">일일 인기 토픽</h2>
         <div className="space-y-4">
           {dailyTopics.length > 0 ? (
-            dailyTopics.map((item) => {
-              const isExpanded = !!expandedTopics[item.id];
-              return (
-                <TopicCard 
-                  key={`daily-${item.id}-${isExpanded}`} 
-                  {...item} 
-                  isExpanded={isExpanded}
-                  onToggleExpand={() => handleToggleExpand(item.id)}
-                />
-              );
-            })
+            dailyTopics.map((item) => (
+              <TopicCard 
+                key={`daily-${item.id}`} 
+                {...item} 
+                isExpanded={!!expandedTopics[item.id]}
+                onToggleExpand={() => handleToggleExpand(item.id)}
+              />
+            ))
           ) : (
             <p className="text-gray-500 text-center py-4">아직 집계된 일일 인기 토픽이 없습니다.</p>
           )}
