@@ -219,9 +219,8 @@ const ThreadedCommentList = ({ messageId, chatroomId }: { messageId: number, cha
 };
 
 // --- TopicCard Component ---
-const TopicCard = ({ topic, sources, summary, message_id, chatroom_id }: Topic) => {
+const TopicCard = ({ topic, sources, summary, message_id, chatroom_id, isExpanded, onToggleExpand }: Topic & { isExpanded: boolean; onToggleExpand: () => void; }) => {
   const [isCommentsVisible, setIsCommentsVisible] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
 
   const displaySummary = isExpanded || summary.length <= 100 ? summary : `${summary.substring(0, 100)}...`;
 
@@ -236,9 +235,8 @@ const TopicCard = ({ topic, sources, summary, message_id, chatroom_id }: Topic) 
         </div>
       )}
       <p className="text-gray-600 text-sm" style={{ whiteSpace: 'pre-wrap' }}>{displaySummary}</p>
-      <p className="text-xs text-red-500">Debug: isExpanded = {isExpanded.toString()}</p> 
       {summary.length > 100 && (
-        <button onClick={() => alert('Button clicked!')} className="text-blue-500 hover:text-blue-700 text-sm mt-1">
+        <button onClick={onToggleExpand} className="text-blue-500 hover:text-blue-700 text-sm mt-1">
           {isExpanded ? '숨기기' : '더보기'}
         </button>
       )}
@@ -260,6 +258,14 @@ const AllPopularTopics: React.FC = () => {
   const [weeklyTopics, setWeeklyTopics] = useState<Topic[]>([]);
   const [dailyTopics, setDailyTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedTopics, setExpandedTopics] = useState<Record<number, boolean>>({});
+
+  const handleToggleExpand = (topicId: number) => {
+    setExpandedTopics(prev => ({
+      ...prev,
+      [topicId]: !prev[topicId]
+    }));
+  };
 
   useEffect(() => {
     const fetchTopics = async () => {
@@ -296,7 +302,12 @@ const AllPopularTopics: React.FC = () => {
         <div className="space-y-4">
           {weeklyTopics.length > 0 ? (
             weeklyTopics.map((item) => (
-              <TopicCard key={`weekly-${item.id}`} {...item} />
+              <TopicCard 
+                key={`weekly-${item.id}`} 
+                {...item} 
+                isExpanded={!!expandedTopics[item.id]}
+                onToggleExpand={() => handleToggleExpand(item.id)}
+              />
             ))
           ) : (
             <p className="text-gray-500 text-center py-4">아직 집계된 주간 인기 토픽이 없습니다.</p>
@@ -308,7 +319,12 @@ const AllPopularTopics: React.FC = () => {
         <div className="space-y-4">
           {dailyTopics.length > 0 ? (
             dailyTopics.map((item) => (
-              <TopicCard key={`daily-${item.id}`} {...item} />
+              <TopicCard 
+                key={`daily-${item.id}`} 
+                {...item} 
+                isExpanded={!!expandedTopics[item.id]}
+                onToggleExpand={() => handleToggleExpand(item.id)}
+              />
             ))
           ) : (
             <p className="text-gray-500 text-center py-4">아직 집계된 일일 인기 토픽이 없습니다.</p>
