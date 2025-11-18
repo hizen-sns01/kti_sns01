@@ -297,19 +297,21 @@ const AllPopularTopics: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <p className="text-xs text-red-500">Debug State: {JSON.stringify(expandedTopics)}</p>
       <div>
         <h2 className="text-xl font-bold text-gray-900 mb-4">실시간 토픽</h2>
         <div className="space-y-4">
           {weeklyTopics.length > 0 ? (
-            weeklyTopics.map((item) => (
-              <TopicCard 
-                key={`weekly-${item.id}`} 
-                {...item} 
-                isExpanded={!!expandedTopics[item.id]}
-                onToggleExpand={() => handleToggleExpand(item.id)}
-              />
-            ))
+            weeklyTopics.map((item) => {
+              const isExpanded = !!expandedTopics[item.id];
+              return (
+                <TopicCard 
+                  key={`weekly-${item.id}-${isExpanded}`} 
+                  {...item} 
+                  isExpanded={isExpanded}
+                  onToggleExpand={() => handleToggleExpand(item.id)}
+                />
+              );
+            })
           ) : (
             <p className="text-gray-500 text-center py-4">아직 집계된 주간 인기 토픽이 없습니다.</p>
           )}
@@ -319,14 +321,17 @@ const AllPopularTopics: React.FC = () => {
         <h2 className="text-xl font-bold text-gray-900 mb-4">일일 인기 토픽</h2>
         <div className="space-y-4">
           {dailyTopics.length > 0 ? (
-            dailyTopics.map((item) => (
-              <TopicCard 
-                key={`daily-${item.id}`} 
-                {...item} 
-                isExpanded={!!expandedTopics[item.id]}
-                onToggleExpand={() => handleToggleExpand(item.id)}
-              />
-            ))
+            dailyTopics.map((item) => {
+              const isExpanded = !!expandedTopics[item.id];
+              return (
+                <TopicCard 
+                  key={`daily-${item.id}-${isExpanded}`} 
+                  {...item} 
+                  isExpanded={isExpanded}
+                  onToggleExpand={() => handleToggleExpand(item.id)}
+                />
+              );
+            })
           ) : (
             <p className="text-gray-500 text-center py-4">아직 집계된 일일 인기 토픽이 없습니다.</p>
           )}
