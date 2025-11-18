@@ -236,6 +236,7 @@ const TopicCard = ({ topic, sources, summary, message_id, chatroom_id }: Topic) 
         </div>
       )}
       <p className="text-gray-600 text-sm" style={{ whiteSpace: 'pre-wrap' }}>{displaySummary}</p>
+      <p className="text-xs text-red-500">Debug: isExpanded = {isExpanded.toString()}</p> 
       {summary.length > 100 && (
         <button onClick={() => setIsExpanded(!isExpanded)} className="text-blue-500 hover:text-blue-700 text-sm mt-1">
           {isExpanded ? '숨기기' : '더보기'}
