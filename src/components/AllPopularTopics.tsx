@@ -297,6 +297,7 @@ const AllPopularTopics: React.FC = () => {
 
   return (
     <div className="space-y-8">
+      <p className="text-xs text-red-500">Debug State: {JSON.stringify(expandedTopics)}</p>
       <div>
         <h2 className="text-xl font-bold text-gray-900 mb-4">실시간 토픽</h2>
         <div className="space-y-4">
