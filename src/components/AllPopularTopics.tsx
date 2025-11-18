@@ -223,6 +223,8 @@ const TopicCard = ({ topic, sources, summary, message_id, chatroom_id }: Topic) 
   const [isCommentsVisible, setIsCommentsVisible] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
+  const displaySummary = isExpanded || summary.length <= 100 ? summary : `${summary.substring(0, 100)}...`;
+
   return (
     <div className="bg-white p-4 rounded-lg shadow border border-gray-200 hover:shadow-lg transition-shadow duration-200">
       <div className="mb-2">
@@ -233,8 +235,8 @@ const TopicCard = ({ topic, sources, summary, message_id, chatroom_id }: Topic) 
           <span className="text-xs text-gray-500">출처: {sources.join(', ')}</span>
         </div>
       )}
-      <p className={`text-gray-600 text-sm ${!isExpanded ? 'line-clamp-3' : ''}`}>{summary}</p>
-      {summary.length > 100 && ( // Only show '더보기' if the text is long enough
+      <p className="text-gray-600 text-sm" style={{ whiteSpace: 'pre-wrap' }}>{displaySummary}</p>
+      {summary.length > 100 && (
         <button onClick={() => setIsExpanded(!isExpanded)} className="text-blue-500 hover:text-blue-700 text-sm mt-1">
           {isExpanded ? '숨기기' : '더보기'}
         </button>
