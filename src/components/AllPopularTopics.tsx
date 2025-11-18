@@ -9,6 +9,7 @@ interface Topic {
   topic: string;
   sources: string[];
   summary: string;
+  content?: string; // Add optional content field for full text
   type: 'weekly' | 'daily';
   chatroom_id?: string;
   message_id?: number;
@@ -219,12 +220,12 @@ const ThreadedCommentList = ({ messageId, chatroomId }: { messageId: number, cha
 };
 
 // --- TopicCard Component ---
-const TopicCard = ({ topic, sources, summary, message_id, chatroom_id, isExpanded, onToggleExpand }: Topic & { isExpanded: boolean; onToggleExpand: () => void; }) => {
+const TopicCard = ({ topic, sources, summary, content, message_id, chatroom_id, isExpanded, onToggleExpand }: Topic & { isExpanded: boolean; onToggleExpand: () => void; }) => {
   const [isCommentsVisible, setIsCommentsVisible] = useState(false);
 
-  // Explicitly define short and full summary variables for clarity
-  const fullSummary = summary;
-  const shortSummary = summary.length > 100 ? `${summary.substring(0, 100)}...` : summary;
+  // Use topic.content for the full summary if it exists, otherwise fall back to summary.
+  const fullSummary = content || summary;
+  const shortSummary = fullSummary.length > 100 ? `${fullSummary.substring(0, 100)}...` : fullSummary;
 
   return (
     <div className="bg-white p-4 rounded-lg shadow border border-gray-200 hover:shadow-lg transition-shadow duration-200">
@@ -243,7 +244,7 @@ const TopicCard = ({ topic, sources, summary, message_id, chatroom_id, isExpande
         <p className="text-gray-600 text-sm" style={{ whiteSpace: 'pre-wrap' }}>{fullSummary}</p>
       )}
 
-      {summary.length > 100 && (
+      {fullSummary.length > 100 && (
         <button onClick={onToggleExpand} className="text-blue-500 hover:text-blue-700 text-sm mt-1">
           {isExpanded ? '숨기기' : '더보기'}
         </button>
