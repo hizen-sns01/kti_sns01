@@ -287,6 +287,10 @@ const AllPopularTopics: React.FC = () => {
 
         if (error) throw error;
 
+        if (data && data.length > 0) {
+          console.log("First topic data:", data[0]); // Log the first topic to inspect its structure
+        }
+
         setWeeklyTopics(data.filter(t => t.type === 'weekly').slice(0, 3));
         setDailyTopics(data.filter(t => t.type === 'daily').slice(0, 5));
 
