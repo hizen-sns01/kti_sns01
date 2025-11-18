@@ -234,7 +234,7 @@ const TopicCard = ({ topic, sources, summary, message_id, chatroom_id, isExpande
           <span className="text-xs text-gray-500">출처: {sources.join(', ')}</span>
         </div>
       )}
-      <p className="text-gray-600 text-sm" style={{ whiteSpace: 'pre-wrap' }}>{displaySummary}</p>
+      <p key={`${summary}-${isExpanded}`} className="text-gray-600 text-sm" style={{ whiteSpace: 'pre-wrap' }}>{displaySummary}</p>
       {summary.length > 100 && (
         <button onClick={onToggleExpand} className="text-blue-500 hover:text-blue-700 text-sm mt-1">
           {isExpanded ? '숨기기' : '더보기'}
@@ -284,7 +284,8 @@ const AllPopularTopics: React.FC = () => {
 
       } catch (err: any) {
         console.error('Error fetching popular topics:', err.message);
-      } finally {
+      }
+      finally {
         setLoading(false);
       }
     };
@@ -298,7 +299,7 @@ const AllPopularTopics: React.FC = () => {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">실시간 토픽 - TEST</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">실시간 토픽</h2>
         <div className="space-y-4">
           {weeklyTopics.length > 0 ? (
             weeklyTopics.map((item) => {
