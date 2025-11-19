@@ -139,6 +139,7 @@ serve(async (req) => {
         dailyPopularTopics.push({
           topic: chatroomName, // Use chatroom name as topic for daily
           summary: summary,
+          content: message.content, // Save the full content
           sources: [], // No specific sources needed for message-based topic
           type: 'daily',
           score: calculatedScore,
