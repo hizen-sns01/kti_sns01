@@ -282,7 +282,7 @@ const AllPopularTopics: React.FC = () => {
       try {
         const { data, error } = await supabase
           .from('popular_topics')
-          .select('*, chatroom_id, message_id')
+          .select('id, topic, sources, summary, content, type, chatroom_id, message_id')
           .in('type', ['weekly', 'daily'])
           .order('score', { ascending: false });
 
